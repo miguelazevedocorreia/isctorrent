@@ -1,29 +1,36 @@
-### IntelliJ IDEA ###
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
 out/
-!**/src/main/**/out/
-!**/src/test/**/out/
+.idea_modules/
 
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
+# Arquivos compilados
+*.class
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
+# Arquivos de pacotes
+*.jar
+*.war
+*.ear
 
-### VS Code ###
-.vscode/
+# Logs
+*.log
+log/
+logs/
 
-### Mac OS ###
+# Diretórios de trabalho do IscTorrent (com arquivos de teste)
+dl1/
+dl2/
+dl3/
+dl*/
+
+# Arquivos específicos do sistema
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Arquivos temporários
+*~
+*.swp
+*.swo

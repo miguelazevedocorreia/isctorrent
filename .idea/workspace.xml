@@ -4,26 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="922b9588-776a-49bf-8024-6e149a296194" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/Main.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/core/Constants.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/core/FileManager.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/core/IscTorrent.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/download/DownloadTask.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/download/DownloadTasksManager.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/download/FileWriterThread.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/gui/GUI.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/gui/dialogs/ConnectionDialog.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/network/ConnectionManager.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/network/NodeConnection.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/protocol/FileBlockAnswerMessage.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/protocol/FileBlockRequestMessage.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/protocol/FileSearchResult.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/protocol/NewConnectionRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/pt/iscte/pcd/isctorrent/protocol/WordSearchMessage.java" afterDir="false" />
+    <list default="true" id="922b9588-776a-49bf-8024-6e149a296194" name="Changes" comment="First Commit">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,7 +41,7 @@
     "Application.isctorret-8081.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "main",
     "jdk.selected.JAVA_MODULE": "22",
     "kotlin-language-version-configured": "true",
     "node.js.detected.package.eslint": "true",
@@ -101,11 +84,24 @@
       <workItem from="1747780907195" duration="71000" />
       <workItem from="1747780986543" duration="381000" />
       <workItem from="1747781372816" duration="41000" />
-      <workItem from="1747781475021" duration="227000" />
+      <workItem from="1747781475021" duration="758000" />
     </task>
+    <task id="LOCAL-00001" summary="First Commit">
+      <option name="closed" value="true" />
+      <created>1747781830297</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1747781830297</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="First Commit" />
+    <option name="LAST_COMMIT_MESSAGE" value="First Commit" />
   </component>
 </project>
