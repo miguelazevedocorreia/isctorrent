@@ -77,7 +77,19 @@ public class GUI extends JFrame {
     public synchronized void addSearchResults(List<FileSearchResult> results) {
         SwingUtilities.invokeLater(() -> {
             for (FileSearchResult result : results) {
-                resultsModel.addElement(result);
+                // Verificar se já existe um resultado igual no modelo
+                boolean isDuplicate = false;
+                for (int i = 0; i < resultsModel.size(); i++) {
+                    FileSearchResult existing = resultsModel.getElementAt(i);
+                    if (existing.hash().equals(result.hash())) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+
+                if (!isDuplicate) {
+                    resultsModel.addElement(result);
+                }
             }
         });
     }

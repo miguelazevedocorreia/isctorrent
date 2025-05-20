@@ -29,7 +29,7 @@ public class DownloadTask implements Runnable {
                 Object response = connection.receiveResponse();
 
                 if (response instanceof FileBlockAnswerMessage answer) {
-                    manager.saveBlock(fileInfo.hash(), answer);
+                    manager.saveBlock(fileInfo.hash(), answer, connection);
                 } else {
                     manager.requeueBlock(request);
                 }

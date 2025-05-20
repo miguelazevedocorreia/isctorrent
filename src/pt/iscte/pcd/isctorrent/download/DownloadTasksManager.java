@@ -1,6 +1,7 @@
 package pt.iscte.pcd.isctorrent.download;
 
 import pt.iscte.pcd.isctorrent.core.Constants;
+import pt.iscte.pcd.isctorrent.core.IscTorrent;
 import pt.iscte.pcd.isctorrent.network.NodeConnection;
 import pt.iscte.pcd.isctorrent.protocol.FileBlockAnswerMessage;
 import pt.iscte.pcd.isctorrent.protocol.FileBlockRequestMessage;
@@ -19,18 +20,38 @@ public class DownloadTasksManager {
     private final Map<String, Integer> receivedBlocks;
     private final Map<String, Integer> totalBlocks;
 
-    public DownloadTasksManager() {
+    // Rastreamento de blocos por nó e tempo
+    private final Map<String, Map<String, Integer>> blocksPerNode;
+    private final Map<String, Long> downloadStartTime;
+
+    private final IscTorrent torrent;
+
+    public DownloadTasksManager(IscTorrent torrent) {
+        this.torrent = torrent;
         this.downloadExecutor = Executors.newFixedThreadPool(Constants.MAX_CONCURRENT_DOWNLOADS);
         this.pendingBlocks = new LinkedList<>();
         this.fileData = new HashMap<>();
         this.writers = new HashMap<>();
         this.receivedBlocks = new HashMap<>();
         this.totalBlocks = new HashMap<>();
+        this.blocksPerNode = new HashMap<>();
+        this.downloadStartTime = new HashMap<>();
     }
 
     public synchronized void startDownload(FileSearchResult file, List<NodeConnection> sources, String workingDirectory) {
         String hash = file.hash();
         System.out.println("[Transfer] Starting transfer for: " + file.fileName());
+
+        // Iniciar contador de tempo
+        downloadStartTime.put(hash, System.currentTimeMillis());
+
+        // Inicializar o contador de blocos por nó
+        Map<String, Integer> nodeCounter = new HashMap<>();
+        for (NodeConnection conn : sources) {
+            String nodeKey = conn.getRemoteAddress() + ":" + conn.getRemotePort();
+            nodeCounter.put(nodeKey, 0);
+        }
+        blocksPerNode.put(hash, nodeCounter);
 
         // Initialize file data array
         fileData.put(hash, new byte[(int) file.fileSize()]);
@@ -65,7 +86,14 @@ public class DownloadTasksManager {
         return pendingBlocks.poll();
     }
 
-    public synchronized void saveBlock(String hash, FileBlockAnswerMessage answer) {
+    public synchronized void saveBlock(String hash, FileBlockAnswerMessage answer, NodeConnection connection) {
+        // Contabilizar o bloco recebido para este nó
+        String nodeKey = connection.getRemoteAddress() + ":" + connection.getRemotePort();
+        Map<String, Integer> nodeCounter = blocksPerNode.get(hash);
+        if (nodeCounter != null) {
+            nodeCounter.put(nodeKey, nodeCounter.getOrDefault(nodeKey, 0) + 1);
+        }
+
         byte[] file = fileData.get(hash);
         if (file != null) {
             System.arraycopy(answer.data(), 0, file, (int) answer.offset(), answer.data().length);
@@ -73,9 +101,12 @@ public class DownloadTasksManager {
             receivedBlocks.put(hash, received);
 
             if (isDownloadComplete(hash)) {
+                // Calcular tempo decorrido
+                long elapsedTime = System.currentTimeMillis() - downloadStartTime.getOrDefault(hash, 0L);
+
                 FileWriterThread writer = writers.get(hash);
                 if (writer != null) {
-                    writer.notifyDownloadComplete();
+                    writer.notifyDownloadComplete(nodeCounter, elapsedTime);
                 }
             }
         }
@@ -97,6 +128,8 @@ public class DownloadTasksManager {
         writers.clear();
         receivedBlocks.clear();
         totalBlocks.clear();
+        blocksPerNode.clear();
+        downloadStartTime.clear();
     }
 
     public synchronized boolean isDownloadComplete(String hash) {
@@ -110,5 +143,9 @@ public class DownloadTasksManager {
     public synchronized void requeueBlock(FileBlockRequestMessage block) {
         pendingBlocks.offer(block);
         notifyAll();
+    }
+
+    public IscTorrent getTorrent() {
+        return torrent;
     }
 }

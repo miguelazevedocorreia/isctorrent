@@ -14,9 +14,14 @@ public class NodeConnection implements Runnable {
     private final ObjectInputStream input;
     private final ObjectOutputStream output;
     private final IscTorrent torrent;
+
+    private SearchResultsCollector searchResultsCollector;
+
     private volatile boolean running = true;
 
     private Object lastResponse;
+    // Adicionar variável para porta de escuta remota
+    private int remoteListeningPort = -1;
 
     public NodeConnection(Socket socket, IscTorrent torrent) throws IOException {
         this.socket = socket;
@@ -59,7 +64,16 @@ public class NodeConnection implements Runnable {
     }
 
     private void handleMessage(Object message) throws IOException {
-        if (message instanceof WordSearchMessage) {
+        if (message instanceof NewConnectionRequest request) {
+            // Guardar a porta de escuta do nó remoto
+            remoteListeningPort = request.port();
+            System.out.println("[Conexão] Recebido pedido de conexão de " +
+                    getRemoteAddress() + " porta de escuta: " + remoteListeningPort);
+
+            // Estabelecer uma conexão de retorno
+            torrent.getConnectionManager().establishReturnConnection(getRemoteAddress(), remoteListeningPort);
+        }
+        else if (message instanceof WordSearchMessage) {
             System.out.println("[Pesquisa] A processar pedido de pesquisa de " +
                     getRemoteAddress() + ":" + getRemotePort());
             handleSearch((WordSearchMessage) message);
@@ -81,7 +95,13 @@ public class NodeConnection implements Runnable {
             List<FileSearchResult> results = (List<FileSearchResult>) message;
             System.out.println("[Pesquisa] Recebidos " + results.size() +
                     " resultados de " + getRemoteAddress() + ":" + getRemotePort());
-            torrent.getGui().addSearchResults(results);
+
+            if (searchResultsCollector != null) {
+                searchResultsCollector.addResults(results);
+                searchResultsCollector = null; // Reset após uso
+            } else {
+                torrent.getGui().addSearchResults(results);
+            }
         }
     }
 
@@ -164,4 +184,13 @@ public class NodeConnection implements Runnable {
     public int getRemotePort() {
         return socket.getPort();
     }
+
+    public int getRemoteListeningPort() {
+        return remoteListeningPort;
+    }
+
+    public void setSearchResultsCollector(SearchResultsCollector collector) {
+        this.searchResultsCollector = collector;
+    }
+
 }

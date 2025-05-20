@@ -16,6 +16,8 @@ public class ConnectionManager {
     private final List<NodeConnection> connections;
     private final ServerSocket serverSocket;
     private volatile boolean running = true;
+    // Conjunto para rastrear os nós aos quais já nos conectamos para evitar conexões duplicadas
+    private final Set<String> connectedNodes = new HashSet<>();
 
     public ConnectionManager(int port, IscTorrent torrent) {
         this.port = port;
@@ -32,7 +34,33 @@ public class ConnectionManager {
         }
     }
 
+    // Método para estabelecer conexão de retorno
+    public void establishReturnConnection(String address, int port) {
+        String nodeKey = address + ":" + port;
+
+        // Verificar se já estamos conectados a este nó
+        if (connectedNodes.contains(nodeKey)) {
+            System.out.println("[Conexão] Já existe uma conexão de retorno para " + nodeKey);
+            return;
+        }
+
+        System.out.println("[Conexão] Estabelecendo conexão de retorno para " + nodeKey);
+        connectToNode(address, port, true);
+    }
+
     public void connectToNode(String address, int port) {
+        connectToNode(address, port, false);
+    }
+
+    private void connectToNode(String address, int port, boolean isReturnConnection) {
+        String nodeKey = address + ":" + port;
+
+        // Verificar se já estamos conectados a este nó
+        if (connectedNodes.contains(nodeKey)) {
+            System.out.println("[Cliente] Já existe uma conexão para " + nodeKey);
+            return;
+        }
+
         System.out.println("[Cliente] A tentar estabelecer ligação a " + address + ":" + port);
 
         try {
@@ -41,21 +69,29 @@ public class ConnectionManager {
 
             NodeConnection connection = new NodeConnection(socket, torrent);
 
-            NewConnectionRequest request = new NewConnectionRequest(
-                    InetAddress.getLocalHost().getHostAddress(),
-                    this.port
-            );
-            connection.sendMessage(request);
-            System.out.println("[Cliente] Enviado pedido de ligação para " + address + ":" + port);
+            // Apenas enviar pedido de conexão se não for uma conexão de retorno
+            if (!isReturnConnection) {
+                NewConnectionRequest request = new NewConnectionRequest(
+                        InetAddress.getLocalHost().getHostAddress(),
+                        this.port
+                );
+                connection.sendMessage(request);
+                System.out.println("[Cliente] Enviado pedido de ligação para " + address + ":" + port);
+            }
 
+            // Adicionar à lista de conexões e ao conjunto de nós conectados
             connections.add(connection);
+            connectedNodes.add(nodeKey);
             new Thread(connection).start();
 
         } catch (IOException e) {
             String errorMsg = "Falha ao ligar a " + address + ":" + port + " - " + e.getMessage();
             System.err.println("[Cliente] " + errorMsg);
-            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, errorMsg, "Erro de Ligação",
-                    JOptionPane.ERROR_MESSAGE));
+
+            if (!isReturnConnection) {
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, errorMsg, "Erro de Ligação",
+                        JOptionPane.ERROR_MESSAGE));
+            }
         }
     }
 
@@ -80,11 +116,19 @@ public class ConnectionManager {
     }
 
     public void broadcastSearch(WordSearchMessage search) {
+        broadcastSearch(search, null);
+    }
+
+    public void broadcastSearch(WordSearchMessage search, SearchResultsCollector collector) {
         System.out.println("[Pesquisa] A iniciar difusão de pesquisa por '" + search.keyword() +
                 "' para " + connections.size() + " ligações");
 
         for (NodeConnection connection : connections) {
             try {
+                // Associar o coletor à conexão se fornecido
+                if (collector != null) {
+                    connection.setSearchResultsCollector(collector);
+                }
                 connection.sendMessage(search);
                 System.out.println("[Pesquisa] Pesquisa enviada para " +
                         connection.getRemoteAddress() + ":" + connection.getRemotePort());
@@ -92,6 +136,11 @@ public class ConnectionManager {
                 System.err.println("[Pesquisa] Erro ao enviar pesquisa para " +
                         connection.getRemoteAddress() + ":" + connection.getRemotePort());
                 connections.remove(connection);
+
+                // Se tiver um coletor, contar esta falha como uma resposta
+                if (collector != null) {
+                    collector.addResults(Collections.emptyList());
+                }
             }
         }
     }
@@ -99,13 +148,20 @@ public class ConnectionManager {
     public List<NodeConnection> getConnectionsForNode(String address, int port) {
         System.out.println("[Ligação] A procurar ligações para " + address + ":" + port);
         List<NodeConnection> result = new ArrayList<>();
+
+        // Procurar por conexões com o endereço especificado
         for (NodeConnection conn : connections) {
-            if (conn.getRemoteAddress().equals(address) && conn.getRemotePort() == port) {
+            if (conn.getRemoteAddress().equals(address)) {
                 result.add(conn);
             }
         }
+
         System.out.println("[Ligação] Encontradas " + result.size() + " ligações");
         return result;
+    }
+
+    public int getActiveConnectionsCount() {
+        return connections.size();
     }
 
     public void shutdown() {
@@ -115,6 +171,7 @@ public class ConnectionManager {
             connection.close();
         }
         connections.clear();
+        connectedNodes.clear();
         try {
             serverSocket.close();
             System.out.println("[Servidor] Servidor encerrado com sucesso");
