@@ -30,7 +30,7 @@ public class GUI extends JFrame {
         // Lista de resultados
         resultsModel = new DefaultListModel<>();
         resultsList = new JList<>(resultsModel);
-        resultsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        resultsList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         JScrollPane scrollPane = new JScrollPane(resultsList);
 
         // Botões
@@ -68,9 +68,11 @@ public class GUI extends JFrame {
     }
 
     private void download() {
-        FileSearchResult selected = resultsList.getSelectedValue();
-        if (selected != null) {
-            torrent.startDownload(selected);
+        List<FileSearchResult> selectedItems = resultsList.getSelectedValuesList();
+        if (!selectedItems.isEmpty()) {
+            for (FileSearchResult selected : selectedItems) {
+                torrent.startDownload(selected);
+            }
         }
     }
 
