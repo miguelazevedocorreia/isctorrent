@@ -9,6 +9,10 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.List;
 
+/**
+ * Conexão com um nó remoto
+ * Gere a comunicação bidirecional através de sockets
+ */
 public class NodeConnection implements Runnable {
     private final Socket socket;
     private final ObjectInputStream input;
@@ -16,167 +20,217 @@ public class NodeConnection implements Runnable {
     private final IscTorrent torrent;
 
     private SearchResultsCollector searchResultsCollector;
-
     private volatile boolean running = true;
-
     private Object lastResponse;
-    // Adicionar variável para porta de escuta remota
+
+    // Porta de escuta do nó remoto
     private int remoteListeningPort = -1;
 
+    /**
+     * Construtor da conexão
+     * @param socket Socket da conexão
+     * @param torrent Instância principal do IscTorrent
+     */
     public NodeConnection(Socket socket, IscTorrent torrent) throws IOException {
         this.socket = socket;
         this.torrent = torrent;
 
-        // Importante: primeiro criar output, fazer flush, depois criar input
+        // Criar streams (output primeiro, depois input)
         this.output = new ObjectOutputStream(socket.getOutputStream());
-        this.output.flush(); // Força envio do cabeçalho
-
+        this.output.flush();
         this.input = new ObjectInputStream(socket.getInputStream());
     }
 
     @Override
     public void run() {
-        System.out.println("[Ligação] A iniciar processamento de mensagens para " +
-                getRemoteAddress() + ":" + getRemotePort());
+        System.out.println("[Conexão] Iniciada com " + getRemoteAddress() +
+                ":" + getRemotePort());
 
         while (running && !socket.isClosed()) {
             try {
                 Object message = input.readObject();
                 if (message != null) {
-                    System.out.println("[Mensagem] Recebida mensagem do tipo: " +
-                            message.getClass().getSimpleName() + " de " +
-                            getRemoteAddress() + ":" + getRemotePort());
                     handleMessage(message);
                 }
             } catch (IOException e) {
                 if (running) {
-                    System.err.println("[Erro] Falha na comunicação com " +
-                            getRemoteAddress() + ":" + getRemotePort() + " - " + e.getMessage());
-                    break;
+                    System.err.println("[Conexão] Erro de comunicação: " +
+                            e.getMessage());
                 }
-            } catch (ClassNotFoundException e) {
-                System.err.println("[Erro] Tipo de mensagem desconhecido de " +
-                        getRemoteAddress() + ":" + getRemotePort());
                 break;
+            } catch (ClassNotFoundException e) {
+                System.err.println("[Conexão] Tipo de mensagem desconhecido");
             }
         }
+
         close();
     }
 
+    /**
+     * Processa mensagens recebidas
+     * @param message Mensagem a processar
+     */
     private void handleMessage(Object message) throws IOException {
+        // Pedido de nova conexão
         if (message instanceof NewConnectionRequest request) {
-            // Guardar a porta de escuta do nó remoto
-            remoteListeningPort = request.port();
-            System.out.println("[Conexão] Recebido pedido de conexão de " +
-                    getRemoteAddress() + " porta de escuta: " + remoteListeningPort);
-
-            // Estabelecer uma conexão de retorno
-            torrent.getConnectionManager().establishReturnConnection(getRemoteAddress(), remoteListeningPort);
+            handleNewConnection(request);
         }
-        else if (message instanceof WordSearchMessage) {
-            System.out.println("[Pesquisa] A processar pedido de pesquisa de " +
-                    getRemoteAddress() + ":" + getRemotePort());
-            handleSearch((WordSearchMessage) message);
+        // Pedido de pesquisa
+        else if (message instanceof WordSearchMessage search) {
+            handleSearch(search);
         }
+        // Pedido de bloco - delegar ao BlockHandler
         else if (message instanceof FileBlockRequestMessage request) {
-            System.out.println("[Transferência] A processar pedido de bloco - Hash: " +
-                    request.hash() + ", Offset: " + request.offset());
             handleBlockRequest(request);
         }
-        else if (message instanceof FileBlockAnswerMessage) {
-            System.out.println("[Transferência] Recebida resposta de bloco");
-            synchronized(this) {
-                lastResponse = message;
-                notifyAll();
-            }
+        // Resposta de bloco
+        else if (message instanceof FileBlockAnswerMessage answer) {
+            handleBlockAnswer(answer);
         }
-        else if (message instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<FileSearchResult> results = (List<FileSearchResult>) message;
-            System.out.println("[Pesquisa] Recebidos " + results.size() +
-                    " resultados de " + getRemoteAddress() + ":" + getRemotePort());
-
-            if (searchResultsCollector != null) {
-                searchResultsCollector.addResults(results);
-                searchResultsCollector = null; // Reset após uso
-            } else {
-                torrent.getGui().addSearchResults(results);
-            }
+        // Lista de resultados de pesquisa
+        else if (message instanceof List<?>) {
+            handleSearchResults(message);
         }
     }
 
+    /**
+     * Processa pedido de nova conexão
+     * @param request Pedido de conexão
+     */
+    private void handleNewConnection(NewConnectionRequest request) {
+        remoteListeningPort = request.port();
+        System.out.println("[Conexão] Pedido recebido de " + request.address() +
+                ":" + request.port());
+
+        // Estabelecer conexão de retorno se necessário
+        torrent.getConnectionManager().establishReturnConnection(
+                request.address(),
+                request.port()
+        );
+    }
+
+    /**
+     * Processa pedido de pesquisa
+     * @param search Mensagem de pesquisa
+     */
     private void handleSearch(WordSearchMessage search) throws IOException {
-        System.out.println("[Pesquisa] A procurar ficheiros com: '" + search.keyword() + "'");
-        List<FileSearchResult> results = torrent.getFileManager()
-                .searchFiles(search.keyword());
-        System.out.println("[Pesquisa] Encontrados " + results.size() + " ficheiros");
+        System.out.println("[Pesquisa] Recebida: '" + search.keyword() + "'");
+
+        // Pesquisar ficheiros locais
+        List<FileSearchResult> results = torrent.getFileManager().searchFiles(search);
+
+        // Enviar resultados
         sendMessage(results);
+
+        System.out.println("[Pesquisa] Enviados " + results.size() + " resultados");
     }
 
-    private void handleBlockRequest(FileBlockRequestMessage request) throws IOException {
-        try {
-            System.out.println("[Transferência] A ler bloco do ficheiro - Hash: " +
-                    request.hash() + ", Offset: " + request.offset());
+    /**
+     * Processa pedido de bloco
+     * @param request Pedido de bloco
+     */
+    private void handleBlockRequest(FileBlockRequestMessage request) {
+        // Delegar ao BlockHandler para evitar sobrecarga
+        torrent.getBlockHandler().addRequest(request, this);
+    }
 
-            byte[] data = torrent.getFileManager().readFileBlock(
-                    request.hash(),
-                    request.offset(),
-                    request.length()
-            );
-
-            FileBlockAnswerMessage response = new FileBlockAnswerMessage(
-                    data,
-                    request.offset()
-            );
-
-            System.out.println("[Transferência] A enviar bloco com " +
-                    data.length + " bytes");
-
-            output.writeObject(response);
-            output.flush();
-
-            System.out.println("[Transferência] Bloco enviado com sucesso");
-        } catch (IOException e) {
-            System.err.println("[Erro] Falha ao processar bloco: " + e.getMessage());
-            throw new IOException("Erro ao processar bloco", e);
+    /**
+     * Processa resposta de bloco
+     * @param answer Resposta com dados do bloco
+     */
+    private void handleBlockAnswer(FileBlockAnswerMessage answer) {
+        synchronized(this) {
+            lastResponse = answer;
+            notifyAll();
         }
     }
 
+    /**
+     * Processa resultados de pesquisa
+     * @param message Lista de resultados
+     */
+    @SuppressWarnings("unchecked")
+    private void handleSearchResults(Object message) {
+        List<FileSearchResult> results = (List<FileSearchResult>) message;
+
+        System.out.println("[Pesquisa] Recebidos " + results.size() +
+                " resultados de " + getRemoteAddress());
+
+        if (searchResultsCollector != null) {
+            searchResultsCollector.addResults(results);
+            searchResultsCollector = null; // Limpar após uso
+        } else {
+            // Se não há coletor, adicionar diretamente à GUI
+            torrent.getGui().addSearchResults(results);
+        }
+    }
+
+    /**
+     * Envia uma mensagem
+     * @param message Mensagem a enviar
+     */
     public synchronized void sendMessage(Object message) throws IOException {
         if (socket.isClosed()) {
             throw new IOException("Socket fechado");
         }
+
         output.writeObject(message);
         output.flush();
     }
 
+    /**
+     * Recebe uma resposta (bloqueia até receber)
+     * @return Resposta recebida
+     */
     public synchronized Object receiveResponse() throws IOException {
         try {
-            while(lastResponse == null) {
-                wait();
+            while (lastResponse == null && running) {
+                wait(10000); // Timeout de 10 segundos
+
+                if (lastResponse == null) {
+                    throw new IOException("Timeout ao aguardar resposta");
+                }
             }
+
             Object response = lastResponse;
             lastResponse = null;
             return response;
+
         } catch (InterruptedException e) {
-            throw new IOException(e);
+            throw new IOException("Interrompido ao aguardar resposta", e);
         }
     }
 
+    /**
+     * Fecha a conexão
+     */
     public void close() {
-        System.out.println("[Ligação] A encerrar ligação com " +
-                getRemoteAddress() + ":" + getRemotePort());
+        System.out.println("[Conexão] A fechar conexão com " + getRemoteAddress());
         running = false;
+
         try {
             if (input != null) input.close();
             if (output != null) output.close();
             if (socket != null && !socket.isClosed()) socket.close();
-            System.out.println("[Ligação] Ligação encerrada com sucesso");
         } catch (IOException e) {
-            System.err.println("[Erro] Falha ao encerrar ligação: " + e.getMessage());
+            // Ignorar erros ao fechar
+        }
+
+        // Acordar threads em espera
+        synchronized(this) {
+            notifyAll();
         }
     }
 
+    /**
+     * Define o coletor de resultados de pesquisa
+     * @param collector Coletor a usar
+     */
+    public void setSearchResultsCollector(SearchResultsCollector collector) {
+        this.searchResultsCollector = collector;
+    }
+
+    // Getters
     public String getRemoteAddress() {
         return socket.getInetAddress().getHostAddress();
     }
@@ -189,8 +243,7 @@ public class NodeConnection implements Runnable {
         return remoteListeningPort;
     }
 
-    public void setSearchResultsCollector(SearchResultsCollector collector) {
-        this.searchResultsCollector = collector;
+    public boolean isConnected() {
+        return !socket.isClosed() && running;
     }
-
 }
