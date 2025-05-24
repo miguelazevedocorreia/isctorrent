@@ -1,5 +1,7 @@
 package pt.iscte.pcd.isctorrent.download;
 
+import pt.iscte.pcd.isctorrent.concurrency.MyCondition;
+import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
 import pt.iscte.pcd.isctorrent.gui.dialogs.DownloadResultDialog;
 
 import javax.swing.*;
@@ -9,17 +11,18 @@ import java.io.IOException;
 import java.util.Map;
 
 public class FileWriterThread implements Runnable {
-    private final String hash;
     private final String fileName;
     private final String workingDirectory;
     private final DownloadTasksManager manager;
     private volatile boolean downloadComplete = false;
 
+    private final MyReentrantLock lock = new MyReentrantLock();
+    private final MyCondition downloadCompleted = lock.newCondition();
+
     private Map<String, Integer> nodeCounter;
     private long elapsedTime;
 
-    public FileWriterThread(String hash, String fileName, String workingDirectory, DownloadTasksManager manager) {
-        this.hash = hash;
+    public FileWriterThread(String fileName, String workingDirectory, DownloadTasksManager manager) {
         this.fileName = fileName;
         this.workingDirectory = workingDirectory;
         this.manager = manager;
@@ -28,13 +31,16 @@ public class FileWriterThread implements Runnable {
     @Override
     public void run() {
         try {
-            synchronized(this) {
+            lock.lock();
+            try {
                 while (!downloadComplete) {
-                    wait();
+                    downloadCompleted.await();
                 }
+            } finally {
+                lock.unlock();
             }
 
-            byte[] fileData = manager.getFileData(hash);
+            byte[] fileData = manager.getFileData(fileName);
             if (fileData == null) {
                 throw new IOException("File data not found");
             }
@@ -44,7 +50,6 @@ public class FileWriterThread implements Runnable {
                 fos.write(fileData);
                 System.out.println("[Write] File saved successfully: " + newFile.getAbsolutePath());
 
-                // Exibir o diálogo de resultado
                 SwingUtilities.invokeLater(() ->
                         DownloadResultDialog.showResult(
                                 SwingUtilities.getWindowAncestor(manager.getTorrent().getGui()),
@@ -60,10 +65,15 @@ public class FileWriterThread implements Runnable {
         }
     }
 
-    public synchronized void notifyDownloadComplete(Map<String, Integer> nodeCounter, long elapsedTime) {
-        this.nodeCounter = nodeCounter;
-        this.elapsedTime = elapsedTime;
-        this.downloadComplete = true;
-        notify();
+    public void notifyDownloadComplete(Map<String, Integer> nodeCounter, long elapsedTime) {
+        lock.lock();
+        try {
+            this.nodeCounter = nodeCounter;
+            this.elapsedTime = elapsedTime;
+            this.downloadComplete = true;
+            downloadCompleted.signal();
+        } finally {
+            lock.unlock();
+        }
     }
 }

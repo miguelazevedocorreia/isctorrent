@@ -1,5 +1,7 @@
 package pt.iscte.pcd.isctorrent.network;
 
+import pt.iscte.pcd.isctorrent.concurrency.MyCondition;
+import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
 import pt.iscte.pcd.isctorrent.core.IscTorrent;
 import pt.iscte.pcd.isctorrent.protocol.*;
 
@@ -20,16 +22,17 @@ public class NodeConnection implements Runnable {
     private volatile boolean running = true;
 
     private Object lastResponse;
-    // Adicionar variável para porta de escuta remota
+    private final MyReentrantLock responseLock = new MyReentrantLock();
+    private final MyCondition responseAvailable = responseLock.newCondition();
+
     private int remoteListeningPort = -1;
 
     public NodeConnection(Socket socket, IscTorrent torrent) throws IOException {
         this.socket = socket;
         this.torrent = torrent;
 
-        // Importante: primeiro criar output, fazer flush, depois criar input
         this.output = new ObjectOutputStream(socket.getOutputStream());
-        this.output.flush(); // Força envio do cabeçalho
+        this.output.flush();
 
         this.input = new ObjectInputStream(socket.getInputStream());
     }
@@ -65,12 +68,10 @@ public class NodeConnection implements Runnable {
 
     private void handleMessage(Object message) throws IOException {
         if (message instanceof NewConnectionRequest request) {
-            // Guardar a porta de escuta do nó remoto
             remoteListeningPort = request.port();
             System.out.println("[Conexão] Recebido pedido de conexão de " +
                     getRemoteAddress() + " porta de escuta: " + remoteListeningPort);
 
-            // Estabelecer uma conexão de retorno
             torrent.getConnectionManager().establishReturnConnection(getRemoteAddress(), remoteListeningPort);
         }
         else if (message instanceof WordSearchMessage) {
@@ -79,15 +80,19 @@ public class NodeConnection implements Runnable {
             handleSearch((WordSearchMessage) message);
         }
         else if (message instanceof FileBlockRequestMessage request) {
-            System.out.println("[Transferência] A processar pedido de bloco - Hash: " +
-                    request.hash() + ", Offset: " + request.offset());
-            handleBlockRequest(request);
+            System.out.println("[Transferência] A processar pedido de bloco - Ficheiro: " +
+                    request.fileName() + ", Offset: " + request.offset());
+            // Adicionar à fila de pedidos
+            torrent.getFileManager().getBlockRequestQueue().addRequest(request, this);
         }
         else if (message instanceof FileBlockAnswerMessage) {
             System.out.println("[Transferência] Recebida resposta de bloco");
-            synchronized(this) {
+            responseLock.lock();
+            try {
                 lastResponse = message;
-                notifyAll();
+                responseAvailable.signal();
+            } finally {
+                responseLock.unlock();
             }
         }
         else if (message instanceof List) {
@@ -98,7 +103,7 @@ public class NodeConnection implements Runnable {
 
             if (searchResultsCollector != null) {
                 searchResultsCollector.addResults(results);
-                searchResultsCollector = null; // Reset após uso
+                searchResultsCollector = null;
             } else {
                 torrent.getGui().addSearchResults(results);
             }
@@ -113,13 +118,13 @@ public class NodeConnection implements Runnable {
         sendMessage(results);
     }
 
-    private void handleBlockRequest(FileBlockRequestMessage request) throws IOException {
+    public void handleBlockRequestDirectly(FileBlockRequestMessage request, pt.iscte.pcd.isctorrent.core.FileManager fileManager) throws IOException {
         try {
-            System.out.println("[Transferência] A ler bloco do ficheiro - Hash: " +
-                    request.hash() + ", Offset: " + request.offset());
+            System.out.println("[Transferência] A ler bloco do ficheiro - Nome: " +
+                    request.fileName() + ", Offset: " + request.offset());
 
-            byte[] data = torrent.getFileManager().readFileBlock(
-                    request.hash(),
+            byte[] data = fileManager.readFileBlock(
+                    request.fileName(),
                     request.offset(),
                     request.length()
             );
@@ -132,8 +137,7 @@ public class NodeConnection implements Runnable {
             System.out.println("[Transferência] A enviar bloco com " +
                     data.length + " bytes");
 
-            output.writeObject(response);
-            output.flush();
+            sendMessage(response);
 
             System.out.println("[Transferência] Bloco enviado com sucesso");
         } catch (IOException e) {
@@ -142,24 +146,32 @@ public class NodeConnection implements Runnable {
         }
     }
 
-    public synchronized void sendMessage(Object message) throws IOException {
-        if (socket.isClosed()) {
-            throw new IOException("Socket fechado");
+    public void sendMessage(Object message) throws IOException {
+        responseLock.lock();
+        try {
+            if (socket.isClosed()) {
+                throw new IOException("Socket fechado");
+            }
+            output.writeObject(message);
+            output.flush();
+        } finally {
+            responseLock.unlock();
         }
-        output.writeObject(message);
-        output.flush();
     }
 
-    public synchronized Object receiveResponse() throws IOException {
+    public Object receiveResponse() throws IOException {
+        responseLock.lock();
         try {
             while(lastResponse == null) {
-                wait();
+                responseAvailable.await();
             }
             Object response = lastResponse;
             lastResponse = null;
             return response;
         } catch (InterruptedException e) {
             throw new IOException(e);
+        } finally {
+            responseLock.unlock();
         }
     }
 
