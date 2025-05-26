@@ -23,6 +23,7 @@ public class IscTorrent {
     private final FileManager fileManager;
     private final DownloadTasksManager downloadManager;
 
+    // classe principal que coordena todos os componentes
     public IscTorrent(int port, String workingDirectory) {
         this.port = port;
         this.workingDirectory = workingDirectory;
@@ -33,15 +34,17 @@ public class IscTorrent {
         this.gui = new GUI(this, port);
     }
 
-    public synchronized void searchFiles(String keyword) {
+    // coordena pesquisa usando CountDownLatch
+    public void searchFiles(String keyword) {
         List<FileSearchResult> localResults = fileManager.searchFiles(keyword);
 
         int activeConnections = connectionManager.getActiveConnectionsCount();
         if (activeConnections == 0) {
-            gui.addSearchResults(localResults);
+            gui.addSearchResults(localResults); // só resultados locais
             return;
         }
 
+        // usa CountDownLatch para esperar por todas as respostas
         MyCountDownLatch latch = new MyCountDownLatch(activeConnections);
         SearchResultsCollector collector = new SearchResultsCollector(latch, localResults);
 
@@ -53,7 +56,8 @@ public class IscTorrent {
             );
             connectionManager.broadcastSearch(searchMessage, collector);
 
-            boolean allResponded = latch.await(Constants.SEARCH_TIMEOUT_MS);
+            // espera por todas as respostas ou timeout
+            latch.await(Constants.SEARCH_TIMEOUT_MS);
             gui.addSearchResults(collector.getAllResults());
 
         } catch (UnknownHostException e) {
@@ -66,7 +70,8 @@ public class IscTorrent {
         }
     }
 
-    public synchronized void startDownloadFromMultipleNodes(List<FileSearchResult> results) {
+    // inicia download com múltiplas threads, uma por nó
+    public void startDownloadFromMultipleNodes(List<FileSearchResult> results) {
         if (results.isEmpty()) return;
 
         String fileName = results.get(0).fileName();
@@ -74,6 +79,7 @@ public class IscTorrent {
 
         List<NodeConnection> allConnections = new ArrayList<>();
 
+        // recolhe todas as conexões disponíveis para o ficheiro
         for (FileSearchResult result : results) {
             List<NodeConnection> nodeConnections = connectionManager
                     .getConnectionsForNode(result.nodeAddress(), result.nodePort());
@@ -89,6 +95,7 @@ public class IscTorrent {
         }
     }
 
+    // estabelece ligação a outro nó
     public void connectToNode(String address, int port) {
         connectionManager.connectToNode(address, port);
     }
@@ -105,6 +112,7 @@ public class IscTorrent {
         return connectionManager;
     }
 
+    // termina todas as operações em curso
     public void shutdown() {
         connectionManager.shutdown();
         downloadManager.shutdown();

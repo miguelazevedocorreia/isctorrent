@@ -9,13 +9,13 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
-
+// interface gráfica
 public class GUI extends JFrame {
     private final IscTorrent torrent;
-    private final JTextField searchField;
-    private final JList<FileSearchResultDisplay> resultsList;
+    private final JTextField searchField; // campo de pesquisa
+    private final JList<FileSearchResultDisplay> resultsList; // lista de resultados
     private final DefaultListModel<FileSearchResultDisplay> resultsModel;
-    private final JList<String> connectionsList;
+    private final JList<String> connectionsList; // lista de conexões ativas
     private final DefaultListModel<String> connectionsModel;
 
     public GUI(IscTorrent torrent, int port) {
@@ -24,39 +24,39 @@ public class GUI extends JFrame {
         setSize(700, 450);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        // Painel de busca
+        // painel de pesquisa no topo
         JPanel searchPanel = new JPanel(new BorderLayout(5, 0));
         searchField = new JTextField();
         JButton searchButton = new JButton("Procurar");
         searchPanel.add(searchField, BorderLayout.CENTER);
         searchPanel.add(searchButton, BorderLayout.EAST);
 
-        // Lista de resultados
+        // lista de resultados à esquerda
         resultsModel = new DefaultListModel<>();
         resultsList = new JList<>(resultsModel);
-        resultsList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        resultsList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION); // seleção múltipla
         JScrollPane scrollPane = new JScrollPane(resultsList);
 
-        // Lista de conexões
+        // lista de conexões ativas
         connectionsModel = new DefaultListModel<>();
         connectionsList = new JList<>(connectionsModel);
         connectionsList.setBorder(BorderFactory.createTitledBorder("Conexões Ativas"));
         JScrollPane connectionsScroll = new JScrollPane(connectionsList);
         connectionsScroll.setPreferredSize(new Dimension(200, 120));
 
-        // Botões
+        // botões à direita
         JPanel buttonPanel = new JPanel(new GridLayout(2, 1, 0, 5));
         JButton downloadButton = new JButton("Transferir");
         JButton connectButton = new JButton("Conectar");
         buttonPanel.add(downloadButton);
         buttonPanel.add(connectButton);
 
-        // Painel direito (botões + conexões)
+        // painel direito com botões e conexões
         JPanel rightPanel = new JPanel(new BorderLayout(0, 5));
         rightPanel.add(buttonPanel, BorderLayout.NORTH);
         rightPanel.add(connectionsScroll, BorderLayout.CENTER);
 
-        // Layout principal
+        // layout principal
         JPanel mainPanel = new JPanel(new BorderLayout(5, 5));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         mainPanel.add(searchPanel, BorderLayout.NORTH);
@@ -65,9 +65,9 @@ public class GUI extends JFrame {
 
         setContentPane(mainPanel);
 
-        // Eventos
+        // eventos dos botões
         searchButton.addActionListener(e -> search());
-        searchField.addActionListener(e -> search());
+        searchField.addActionListener(e -> search()); // Enter no campo também pesquisa
         downloadButton.addActionListener(e -> download());
         connectButton.addActionListener(e -> showConnectionDialog());
 
@@ -75,33 +75,37 @@ public class GUI extends JFrame {
         setVisible(true);
     }
 
+    // inicia pesquisa por palavra-chave
     private void search() {
-        String keyword = searchField.getText();
+        String keyword = searchField.getText().trim();
         if (!keyword.isEmpty()) {
-            resultsModel.clear();
+            resultsModel.clear(); // limpa resultados anteriores
             torrent.searchFiles(keyword);
         }
     }
 
+    // inicia download dos ficheiros selecionados
     private void download() {
         List<FileSearchResultDisplay> selectedItems = resultsList.getSelectedValuesList();
         if (!selectedItems.isEmpty()) {
             for (FileSearchResultDisplay selected : selectedItems) {
                 List<FileSearchResult> allResults = selected.getAllResults();
-                torrent.startDownloadFromMultipleNodes(allResults);
+                torrent.startDownloadFromMultipleNodes(allResults); // download com múltiplos nós
             }
         }
     }
 
-    public synchronized void addSearchResults(List<FileSearchResult> results) {
+    // adiciona resultados à lista - thread-safe
+    public void addSearchResults(List<FileSearchResult> results) {
         SwingUtilities.invokeLater(() -> {
             for (FileSearchResult result : results) {
                 boolean found = false;
+                // agrupa ficheiros com mesmo nome
                 for (int i = 0; i < resultsModel.size(); i++) {
                     FileSearchResultDisplay display = resultsModel.getElementAt(i);
                     if (display.fileName.equals(result.fileName())) {
-                        display.addResult(result); // MUDANÇA: Adicionar à lista
-                        resultsModel.setElementAt(display, i);
+                        display.addResult(result); // adiciona nó à lista do ficheiro
+                        resultsModel.setElementAt(display, i); // atualiza display
                         found = true;
                         break;
                     }
@@ -113,6 +117,7 @@ public class GUI extends JFrame {
         });
     }
 
+    // atualiza lista de conexões ativas
     public void updateConnectionsList() {
         SwingUtilities.invokeLater(() -> {
             connectionsModel.clear();
@@ -121,6 +126,7 @@ public class GUI extends JFrame {
         });
     }
 
+    // mostra diálogo de conexão
     private void showConnectionDialog() {
         ConnectionDialog.ConnectionResult result = ConnectionDialog.showDialog(this);
         if (result != null) {
@@ -128,9 +134,9 @@ public class GUI extends JFrame {
         }
     }
 
-    // Classe interna para display dos resultados com contagem de nós
+    // classe para mostrar ficheiros com contagem de nós
     private static class FileSearchResultDisplay {
-        private final List<FileSearchResult> results;
+        private final List<FileSearchResult> results; // todos os nós que têm o ficheiro
         private final String fileName;
         private final long fileSize;
 
@@ -142,7 +148,7 @@ public class GUI extends JFrame {
         }
 
         public void addResult(FileSearchResult result) {
-            results.add(result);
+            results.add(result); // adiciona mais um nó
         }
 
         public List<FileSearchResult> getAllResults() {
@@ -150,11 +156,12 @@ public class GUI extends JFrame {
         }
 
         public int getNodeCount() {
-            return results.size();
+            return results.size(); // número de nós que têm o ficheiro
         }
 
         @Override
         public String toString() {
+            // formato: nome (tamanho) (X nodes)
             return String.format("%s (%d bytes) (%d nodes)",
                     fileName, fileSize, getNodeCount());
         }

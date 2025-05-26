@@ -1,5 +1,6 @@
 package pt.iscte.pcd.isctorrent.sync;
 
+// implementação própria de CountDownLatch
 public class MyCountDownLatch {
     private int count;
 
@@ -7,30 +8,33 @@ public class MyCountDownLatch {
         this.count = count;
     }
 
+    // decrementa contador e notifica se chegou a zero
     public synchronized void countDown() {
         if (count > 0) {
             count--;
             if (count == 0) {
-                notifyAll();
+                notifyAll(); // acorda todas as threads em espera
             }
         }
     }
 
+    // espera até contador chegar a zero
     public synchronized void await() throws InterruptedException {
-        while (count > 0) {
+        while (count > 0) { // while loop conforme "mandamentos" dos slides
             wait();
         }
     }
 
+    // versão com timeout para coordenação de pesquisas
     public synchronized boolean await(long timeout) throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeout;
         while (count > 0) {
             long remaining = deadline - System.currentTimeMillis();
             if (remaining <= 0) {
-                return false;
+                return false; // timeout expirou
             }
-            wait(remaining);
+            wait(remaining); // espera pelo tempo restante
         }
-        return true;
+        return true; // completou antes do timeout
     }
 }

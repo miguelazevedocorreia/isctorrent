@@ -3,6 +3,7 @@ package pt.iscte.pcd.isctorrent.protocol;
 import java.io.Serial;
 import java.io.Serializable;
 
+// resultado de pesquisa
 public record FileSearchResult(String fileName, long fileSize, String nodeAddress, int nodePort,
                                String workingDirectory) implements Serializable {
     @Serial
@@ -10,7 +11,7 @@ public record FileSearchResult(String fileName, long fileSize, String nodeAddres
 
     @Override
     public String toString() {
-        return String.format("%s (%d bytes)",
+        return String.format("%s (%d bytes)", // formato básico para debug
                 fileName,
                 fileSize);
     }

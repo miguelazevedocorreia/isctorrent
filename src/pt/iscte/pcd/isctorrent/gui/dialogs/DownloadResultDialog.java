@@ -6,6 +6,7 @@ import java.util.Map;
 
 public class DownloadResultDialog extends JDialog {
 
+    // mostra estatísticas do download
     public static void showResult(Window parent, String fileName, Map<String, Integer> blocksPerNode, long timeElapsed) {
         JDialog dialog = new JDialog(parent, "Download Completo", Dialog.ModalityType.APPLICATION_MODAL);
         JPanel panel = new JPanel(new BorderLayout(10, 10));
@@ -17,11 +18,13 @@ public class DownloadResultDialog extends JDialog {
         JLabel titleLabel = new JLabel("Descarga completa.");
         contentPanel.add(titleLabel);
 
+        // mostra quantos blocos foram descarregados de cada nó
         for (Map.Entry<String, Integer> entry : blocksPerNode.entrySet()) {
             JLabel nodeLabel = new JLabel("Fornecedor [endereco=" + entry.getKey() + "]: " + entry.getValue());
             contentPanel.add(nodeLabel);
         }
 
+        // tempo total decorrido
         JLabel timeLabel = new JLabel("Tempo decorrido: " + (timeElapsed/1000) + "s");
         contentPanel.add(timeLabel);
 

@@ -6,17 +6,20 @@ import javax.swing.*;
 
 public class Main {
     public static void main(String[] args) {
+        // verifica argumentos
         if (args.length != 2) {
             System.out.println("Uso: java IscTorrent <porta> <diretório_trabalho>");
             return;
         }
 
-        SwingUtilities.invokeLater(() -> {
+        SwingUtilities.invokeLater(() -> { // thread-safe para GUI
             try {
-                int port = Integer.parseInt(args[0]);
-                String workingDirectory = args[1];
+                int port = Integer.parseInt(args[0]); // primeiro argumento: porta
+                String workingDirectory = args[1]; // segundo argumento: pasta de trabalho
 
                 IscTorrent torrent = new IscTorrent(port, workingDirectory);
+
+                // garante encerramento limpo quando aplicação termina
                 Runtime.getRuntime().addShutdownHook(new Thread(torrent::shutdown));
 
             } catch (NumberFormatException e) {
