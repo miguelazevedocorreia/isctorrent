@@ -8,8 +8,6 @@ import javax.swing.*;
 import java.io.IOException;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 
 public class ConnectionManager {
     private final IscTorrent torrent;
@@ -21,7 +19,8 @@ public class ConnectionManager {
     public ConnectionManager(int port, IscTorrent torrent) {
         this.port = port;
         this.torrent = torrent;
-        this.connections = new CopyOnWriteArrayList<>();
+        // CORREÇÃO: Usar ArrayList normal com synchronized
+        this.connections = new ArrayList<>();
 
         try {
             this.serverSocket = new ServerSocket(port);
@@ -40,7 +39,9 @@ public class ConnectionManager {
                     InetAddress.getLocalHost().getHostAddress(), this.port);
             connection.sendMessage(request);
 
-            connections.add(connection);
+            synchronized(connections) {
+                connections.add(connection);
+            }
             new Thread(connection).start();
             torrent.getGui().updateConnectionsList();
 
@@ -56,7 +57,10 @@ public class ConnectionManager {
             try {
                 Socket socket = serverSocket.accept();
                 NodeConnection connection = new NodeConnection(socket, torrent);
-                connections.add(connection);
+
+                synchronized(connections) {
+                    connections.add(connection);
+                }
                 new Thread(connection).start();
 
             } catch (IOException e) {
@@ -72,14 +76,21 @@ public class ConnectionManager {
     }
 
     public void broadcastSearch(WordSearchMessage search, SearchResultsCollector collector) {
-        for (NodeConnection connection : connections) {
+        List<NodeConnection> connectionsCopy;
+        synchronized(connections) {
+            connectionsCopy = new ArrayList<>(connections);
+        }
+
+        for (NodeConnection connection : connectionsCopy) {
             try {
                 if (collector != null) {
                     connection.setSearchResultsCollector(collector);
                 }
                 connection.sendMessage(search);
             } catch (IOException e) {
-                connections.remove(connection);
+                synchronized(connections) {
+                    connections.remove(connection);
+                }
                 if (collector != null) {
                     collector.addResults(Collections.emptyList());
                 }
@@ -87,37 +98,48 @@ public class ConnectionManager {
         }
     }
 
-    // CORREÇÃO: Método para obter TODAS as conexões ativas
     public List<NodeConnection> getAllConnections() {
-        return new ArrayList<>(connections);
+        synchronized(connections) {
+            return new ArrayList<>(connections);
+        }
     }
 
     public List<NodeConnection> getConnectionsForNode(String address, int port) {
         List<NodeConnection> result = new ArrayList<>();
-        for (NodeConnection conn : connections) {
-            if (conn.getRemoteAddress().equals(address)) {
-                result.add(conn);
+        synchronized(connections) {
+            for (NodeConnection conn : connections) {
+                if (conn.getRemoteAddress().equals(address)) {
+                    result.add(conn);
+                }
             }
         }
         return result;
     }
 
     public List<String> getConnectionsList() {
-        return connections.stream()
-                .map(conn -> conn.getRemoteAddress() + ":" + conn.getRemotePort())
-                .collect(Collectors.toList());
+        synchronized(connections) {
+            List<String> result = new ArrayList<>();
+            for (NodeConnection conn : connections) {
+                result.add(conn.getRemoteAddress() + ":" + conn.getRemotePort());
+            }
+            return result;
+        }
     }
 
     public int getActiveConnectionsCount() {
-        return connections.size();
+        synchronized(connections) {
+            return connections.size();
+        }
     }
 
     public void shutdown() {
         running = false;
-        for (NodeConnection connection : connections) {
-            connection.close();
+        synchronized(connections) {
+            for (NodeConnection connection : connections) {
+                connection.close();
+            }
+            connections.clear();
         }
-        connections.clear();
         try {
             serverSocket.close();
         } catch (IOException e) {

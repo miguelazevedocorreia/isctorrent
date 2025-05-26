@@ -4,7 +4,6 @@ import pt.iscte.pcd.isctorrent.protocol.FileSearchResult;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class FileManager {
     private final String workingDirectory;
@@ -13,12 +12,12 @@ public class FileManager {
 
     public FileManager(String workingDirectory, int port) {
         this.workingDirectory = workingDirectory;
-        this.availableFiles = new ConcurrentHashMap<>();
+        this.availableFiles = new HashMap<>();
         this.port = port;
         loadFiles();
     }
 
-    private void loadFiles() {
+    private synchronized void loadFiles() {
         File directory = new File(workingDirectory);
         File[] files = directory.listFiles();
         if (files != null) {
@@ -50,7 +49,7 @@ public class FileManager {
         }
     }
 
-    public List<FileSearchResult> searchFiles(String keyword) {
+    public synchronized List<FileSearchResult> searchFiles(String keyword) {
         List<FileSearchResult> results = new ArrayList<>();
         String localAddress = Constants.LOCAL_ADDRESS;
 

@@ -18,6 +18,9 @@ public class NodeConnection implements Runnable {
     private volatile boolean running = true;
     private Object lastResponse;
 
+    // CORREÇÃO: Guardar a porta real do servidor remoto
+    private int remoteServerPort = -1;
+
     public NodeConnection(Socket socket, IscTorrent torrent) throws IOException {
         this.socket = socket;
         this.torrent = torrent;
@@ -36,11 +39,11 @@ public class NodeConnection implements Runnable {
                 }
             } catch (IOException e) {
                 if (running) {
-                    System.err.println("[Erro] Falha na comunicação: " + e.getMessage());
+                    System.err.println("Falha na comunicação: " + e.getMessage());
                     break;
                 }
             } catch (ClassNotFoundException e) {
-                System.err.println("[Erro] Tipo de mensagem desconhecido");
+                System.err.println("Tipo de mensagem desconhecido");
                 break;
             }
         }
@@ -49,8 +52,9 @@ public class NodeConnection implements Runnable {
 
     private void handleMessage(Object message) throws IOException {
         if (message instanceof NewConnectionRequest request) {
-            System.out.println("[Conexão] Aceite conexão de " + getRemoteAddress() + ":" + request.port());
-            // Notificar GUI da nova conexão
+            // CORREÇÃO: Guardar a porta do servidor remoto
+            this.remoteServerPort = request.port();
+            System.out.println("Aceite conexão de " + getRemoteAddress() + ":" + getRemotePort());
             torrent.getGui().updateConnectionsList();
         }
         else if (message instanceof WordSearchMessage search) {
@@ -92,7 +96,7 @@ public class NodeConnection implements Runnable {
             output.writeObject(response);
             output.flush();
         } catch (IOException e) {
-            System.err.println("[Erro] Falha ao processar bloco: " + e.getMessage());
+            System.err.println("Falha ao processar bloco: " + e.getMessage());
             throw new IOException("Erro ao processar bloco", e);
         }
     }
@@ -125,7 +129,7 @@ public class NodeConnection implements Runnable {
             if (output != null) output.close();
             if (socket != null && !socket.isClosed()) socket.close();
         } catch (IOException e) {
-            System.err.println("[Erro] Falha ao encerrar ligação: " + e.getMessage());
+            System.err.println("Falha ao encerrar ligação: " + e.getMessage());
         }
     }
 
@@ -134,7 +138,8 @@ public class NodeConnection implements Runnable {
     }
 
     public int getRemotePort() {
-        return socket.getPort();
+        // CORREÇÃO: Retornar a porta do servidor se conhecida, senão a porta do socket
+        return remoteServerPort != -1 ? remoteServerPort : socket.getPort();
     }
 
     public void setSearchResultsCollector(SearchResultsCollector collector) {
