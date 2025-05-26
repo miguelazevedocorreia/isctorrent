@@ -20,7 +20,7 @@ public class MyCountDownLatch {
 
     // espera até contador chegar a zero
     public synchronized void await() throws InterruptedException {
-        while (count > 0) { // while loop conforme "mandamentos" dos slides
+        while (count > 0) { // while loop
             wait();
         }
     }
