@@ -17,8 +17,6 @@ public class NodeConnection implements Runnable {
     private SearchResultsCollector searchResultsCollector;
     private volatile boolean running = true;
     private Object lastResponse;
-
-    // CORREÇÃO: Guardar a porta real do servidor remoto
     private int remoteServerPort = -1;
 
     public NodeConnection(Socket socket, IscTorrent torrent) throws IOException {
@@ -52,7 +50,6 @@ public class NodeConnection implements Runnable {
 
     private void handleMessage(Object message) throws IOException {
         if (message instanceof NewConnectionRequest request) {
-            // CORREÇÃO: Guardar a porta do servidor remoto
             this.remoteServerPort = request.port();
             System.out.println("Aceite conexão de " + getRemoteAddress() + ":" + getRemotePort());
             torrent.getGui().updateConnectionsList();

@@ -6,6 +6,7 @@ import pt.iscte.pcd.isctorrent.protocol.FileSearchResult;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -86,7 +87,8 @@ public class GUI extends JFrame {
         List<FileSearchResultDisplay> selectedItems = resultsList.getSelectedValuesList();
         if (!selectedItems.isEmpty()) {
             for (FileSearchResultDisplay selected : selectedItems) {
-                torrent.startDownload(selected.getResult());
+                List<FileSearchResult> allResults = selected.getAllResults();
+                torrent.startDownloadFromMultipleNodes(allResults);
             }
         }
     }
@@ -97,9 +99,9 @@ public class GUI extends JFrame {
                 boolean found = false;
                 for (int i = 0; i < resultsModel.size(); i++) {
                     FileSearchResultDisplay display = resultsModel.getElementAt(i);
-                    if (display.getResult().fileName().equals(result.fileName())) {
-                        display.incrementNodeCount();
-                        resultsModel.setElementAt(display, i); // Atualiza display
+                    if (display.fileName.equals(result.fileName())) {
+                        display.addResult(result); // MUDANÇA: Adicionar à lista
+                        resultsModel.setElementAt(display, i);
                         found = true;
                         break;
                     }
@@ -128,28 +130,33 @@ public class GUI extends JFrame {
 
     // Classe interna para display dos resultados com contagem de nós
     private static class FileSearchResultDisplay {
-        private final FileSearchResult result;
-        private int nodeCount;
+        private final List<FileSearchResult> results;
+        private final String fileName;
+        private final long fileSize;
 
         public FileSearchResultDisplay(FileSearchResult result) {
-            this.result = result;
-            this.nodeCount = 1;
+            this.results = new ArrayList<>();
+            this.results.add(result);
+            this.fileName = result.fileName();
+            this.fileSize = result.fileSize();
         }
 
-        public void incrementNodeCount() {
-            nodeCount++;
+        public void addResult(FileSearchResult result) {
+            results.add(result);
         }
 
-        public FileSearchResult getResult() {
-            return result;
+        public List<FileSearchResult> getAllResults() {
+            return new ArrayList<>(results);
+        }
+
+        public int getNodeCount() {
+            return results.size();
         }
 
         @Override
         public String toString() {
             return String.format("%s (%d bytes) (%d nodes)",
-                    result.fileName(),
-                    result.fileSize(),
-                    nodeCount);
+                    fileName, fileSize, getNodeCount());
         }
     }
 }

@@ -12,6 +12,7 @@ import pt.iscte.pcd.isctorrent.sync.MyCountDownLatch;
 import javax.swing.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class IscTorrent {
@@ -65,17 +66,25 @@ public class IscTorrent {
         }
     }
 
-    public synchronized void startDownload(FileSearchResult result) {
-        System.out.println("Download iniciado: " + result.fileName());
+    public synchronized void startDownloadFromMultipleNodes(List<FileSearchResult> results) {
+        if (results.isEmpty()) return;
 
-        List<NodeConnection> fileConnections = connectionManager
-                .getConnectionsForNode(result.nodeAddress(), result.nodePort());
+        String fileName = results.get(0).fileName();
+        System.out.println("Download iniciado: " + fileName);
 
-        if (!fileConnections.isEmpty()) {
-            downloadManager.startDownload(result, fileConnections, this.workingDirectory);
+        List<NodeConnection> allConnections = new ArrayList<>();
+
+        for (FileSearchResult result : results) {
+            List<NodeConnection> nodeConnections = connectionManager
+                    .getConnectionsForNode(result.nodeAddress(), result.nodePort());
+            allConnections.addAll(nodeConnections);
+        }
+
+        if (!allConnections.isEmpty()) {
+            downloadManager.startDownload(results.get(0), allConnections, this.workingDirectory);
         } else {
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(gui,
-                    "Nenhuma conexão ativa tem este ficheiro",
+                    "Nenhuma conexão ativa tem este ficheiro disponível",
                     "Erro de Download", JOptionPane.ERROR_MESSAGE));
         }
     }

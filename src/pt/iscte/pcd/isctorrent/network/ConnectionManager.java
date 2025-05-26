@@ -71,10 +71,6 @@ public class ConnectionManager {
         }
     }
 
-    public void broadcastSearch(WordSearchMessage search) {
-        broadcastSearch(search, null);
-    }
-
     public void broadcastSearch(WordSearchMessage search, SearchResultsCollector collector) {
         List<NodeConnection> connectionsCopy;
         synchronized(connections) {
@@ -98,17 +94,12 @@ public class ConnectionManager {
         }
     }
 
-    public List<NodeConnection> getAllConnections() {
-        synchronized(connections) {
-            return new ArrayList<>(connections);
-        }
-    }
-
     public List<NodeConnection> getConnectionsForNode(String address, int port) {
         List<NodeConnection> result = new ArrayList<>();
         synchronized(connections) {
             for (NodeConnection conn : connections) {
-                if (conn.getRemoteAddress().equals(address)) {
+                if (conn.getRemoteAddress().equals(address) &&
+                        conn.getRemotePort() == port) {
                     result.add(conn);
                 }
             }
