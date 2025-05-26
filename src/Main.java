@@ -1,5 +1,3 @@
-package pt.iscte.pcd.isctorrent;
-
 import pt.iscte.pcd.isctorrent.core.IscTorrent;
 
 import javax.swing.*;

@@ -1,4 +1,4 @@
-package pt.iscte.pcd.isctorrent.core;
+package core;
 
 public class Constants {
     public static final int BLOCK_SIZE = 10240;
