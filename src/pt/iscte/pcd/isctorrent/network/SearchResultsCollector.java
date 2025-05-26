@@ -2,17 +2,17 @@ package pt.iscte.pcd.isctorrent.network;
 
 import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.protocol.FileSearchResult;
+import pt.iscte.pcd.isctorrent.concurrency.MyCountDownLatch;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 
 public class SearchResultsCollector {
-    private final CountDownLatch latch;
+    private final MyCountDownLatch latch;
     private final List<FileSearchResult> results;
     private final MyLock lock = new MyLock();
 
-    public SearchResultsCollector(CountDownLatch latch, List<FileSearchResult> initialResults) {
+    public SearchResultsCollector(MyCountDownLatch latch, List<FileSearchResult> initialResults) {
         this.latch = latch;
         this.results = new ArrayList<>(initialResults);
     }
