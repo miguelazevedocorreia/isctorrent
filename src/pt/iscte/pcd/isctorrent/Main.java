@@ -1,3 +1,5 @@
+package pt.iscte.pcd.isctorrent;
+
 import pt.iscte.pcd.isctorrent.core.IscTorrent;
 
 import javax.swing.*;
@@ -7,12 +9,6 @@ public class Main {
         if (args.length != 2) {
             System.out.println("Uso: java IscTorrent <porta> <diretório_trabalho>");
             return;
-        }
-
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         SwingUtilities.invokeLater(() -> {
