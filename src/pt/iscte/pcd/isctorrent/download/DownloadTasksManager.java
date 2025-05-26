@@ -16,7 +16,8 @@ import java.util.concurrent.Executors;
 public class DownloadTasksManager {
 
     private final ExecutorService downloadExecutor;
-    private final Queue<FileBlockRequestMessage> pendingBlocks;
+    // SEPARAR FILAS POR FICHEIRO:
+    private final Map<String, Queue<FileBlockRequestMessage>> pendingBlocksPerFile;
     private final Map<String, byte[]> fileData;
     private final Map<String, FileWriterThread> writers;
     private final Map<String, Integer> receivedBlocks;
@@ -33,7 +34,7 @@ public class DownloadTasksManager {
     public DownloadTasksManager(IscTorrent torrent) {
         this.torrent = torrent;
         this.downloadExecutor = Executors.newFixedThreadPool(Constants.MAX_CONCURRENT_DOWNLOADS);
-        this.pendingBlocks = new LinkedList<>();
+        this.pendingBlocksPerFile = new HashMap<>();
         this.fileData = new HashMap<>();
         this.writers = new HashMap<>();
         this.receivedBlocks = new HashMap<>();
@@ -63,11 +64,16 @@ public class DownloadTasksManager {
             totalBlocks.put(fileName, totalBlocksCount);
             receivedBlocks.put(fileName, 0);
 
+            System.out.println("[DEBUG] Total blocos a descarregar para " + fileName + ": " + totalBlocksCount);
+
+            // CRIAR FILA ESPECÍFICA PARA ESTE FICHEIRO:
+            Queue<FileBlockRequestMessage> fileQueue = new LinkedList<>();
             for (long i = 0; i < totalBlocksCount; i++) {
                 long offset = i * Constants.BLOCK_SIZE;
                 int length = (int) Math.min(Constants.BLOCK_SIZE, file.fileSize() - offset);
-                pendingBlocks.offer(new FileBlockRequestMessage(fileName, offset, length));
+                fileQueue.offer(new FileBlockRequestMessage(fileName, offset, length));
             }
+            pendingBlocksPerFile.put(fileName, fileQueue);
 
             blockAvailable.signalAll();
         } finally {
@@ -86,20 +92,27 @@ public class DownloadTasksManager {
     public FileBlockRequestMessage getNextBlock(String fileName) throws InterruptedException {
         lock.lock();
         try {
-            while (pendingBlocks.isEmpty() && !isDownloadComplete(fileName)) {
+            Queue<FileBlockRequestMessage> fileQueue = pendingBlocksPerFile.get(fileName);
+            if (fileQueue == null) {
+                System.out.println("[DEBUG] Fila não encontrada para " + fileName);
+                return null;
+            }
+
+            while (fileQueue.isEmpty() && !isDownloadComplete(fileName)) {
+                System.out.println("[DEBUG] " + fileName + " - A aguardar blocos... Fila vazia, download completo: " + isDownloadComplete(fileName));
                 blockAvailable.await();
             }
 
-            // Buscar o próximo bloco para este arquivo específico
-            Iterator<FileBlockRequestMessage> it = pendingBlocks.iterator();
-            while (it.hasNext()) {
-                FileBlockRequestMessage block = it.next();
-                if (block.fileName().equals(fileName)) {
-                    it.remove();
-                    return block;
-                }
+            if (isDownloadComplete(fileName)) {
+                System.out.println("[DEBUG] " + fileName + " - Download completo, a sair");
+                return null;
             }
-            return null;
+
+            FileBlockRequestMessage block = fileQueue.poll();
+            if (block != null) {
+                System.out.println("[DEBUG] " + fileName + " - A pedir bloco offset: " + block.offset());
+            }
+            return block;
         } finally {
             lock.unlock();
         }
@@ -116,16 +129,30 @@ public class DownloadTasksManager {
 
             byte[] file = fileData.get(fileName);
             if (file != null) {
-                System.arraycopy(answer.data(), 0, file, (int) answer.offset(), answer.data().length);
+                // VERIFICAR LIMITES DO ARRAY:
+                int maxBytesToCopy = Math.min(answer.data().length, file.length - (int)answer.offset());
+                if (maxBytesToCopy > 0) {
+                    System.arraycopy(answer.data(), 0, file, (int) answer.offset(), maxBytesToCopy);
+                    System.out.println("[DEBUG] " + fileName + " - Copiados " + maxBytesToCopy + " bytes no offset " + answer.offset());
+                } else {
+                    System.err.println("[ERRO] " + fileName + " - Tentativa de escrita fora dos limites: offset=" + answer.offset() + ", tamanho=" + file.length);
+                }
+
                 int received = receivedBlocks.get(fileName) + 1;
                 receivedBlocks.put(fileName, received);
 
+                // LOG DE DEBUG
+                System.out.println("[DEBUG] " + fileName + " - Blocos recebidos: " + received + "/" + totalBlocks.get(fileName));
+
                 if (isDownloadComplete(fileName)) {
+                    System.out.println("[DEBUG] Download completo para " + fileName + "! A notificar FileWriterThread");
                     long elapsedTime = System.currentTimeMillis() - downloadStartTime.getOrDefault(fileName, 0L);
 
                     FileWriterThread writer = writers.get(fileName);
                     if (writer != null) {
                         writer.notifyDownloadComplete(nodeCounter, elapsedTime);
+                    } else {
+                        System.err.println("[ERRO] FileWriterThread não encontrada para " + fileName + "!");
                     }
                 }
             }
@@ -141,7 +168,7 @@ public class DownloadTasksManager {
 
         lock.lock();
         try {
-            pendingBlocks.clear();
+            pendingBlocksPerFile.clear();
             blockAvailable.signalAll();
 
             fileData.clear();
@@ -176,8 +203,11 @@ public class DownloadTasksManager {
     public void requeueBlock(FileBlockRequestMessage block) {
         lock.lock();
         try {
-            pendingBlocks.offer(block);
-            blockAvailable.signalAll();
+            Queue<FileBlockRequestMessage> fileQueue = pendingBlocksPerFile.get(block.fileName());
+            if (fileQueue != null) {
+                fileQueue.offer(block);
+                blockAvailable.signalAll();
+            }
         } finally {
             lock.unlock();
         }

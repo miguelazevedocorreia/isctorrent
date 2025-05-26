@@ -70,7 +70,6 @@ public class FileManager {
                 File file = entry.getValue();
                 if (fileName.toLowerCase().contains(keyword.toLowerCase())) {
                     results.add(new FileSearchResult(
-                            fileName, // usar nome como identificador
                             fileName,
                             file.length(),
                             localAddress,

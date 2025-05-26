@@ -31,6 +31,7 @@ public class FileWriterThread implements Runnable {
     @Override
     public void run() {
         try {
+            System.out.println("[Writer] A aguardar conclusão do download para: " + fileName);
             lock.lock();
             try {
                 while (!downloadComplete) {
@@ -40,6 +41,7 @@ public class FileWriterThread implements Runnable {
                 lock.unlock();
             }
 
+            System.out.println("[Writer] Download concluído, a escrever ficheiro: " + fileName);
             byte[] fileData = manager.getFileData(fileName);
             if (fileData == null) {
                 throw new IOException("File data not found");
@@ -61,17 +63,20 @@ public class FileWriterThread implements Runnable {
             }
 
         } catch (InterruptedException | IOException e) {
-            System.err.println("[Error] " + e.getMessage());
+            System.err.println("[Writer Error] " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     public void notifyDownloadComplete(Map<String, Integer> nodeCounter, long elapsedTime) {
+        System.out.println("[DEBUG] FileWriterThread.notifyDownloadComplete() chamado para: " + fileName);
         lock.lock();
         try {
             this.nodeCounter = nodeCounter;
             this.elapsedTime = elapsedTime;
             this.downloadComplete = true;
             downloadCompleted.signal();
+            System.out.println("[DEBUG] Signal enviado para FileWriterThread");
         } finally {
             lock.unlock();
         }

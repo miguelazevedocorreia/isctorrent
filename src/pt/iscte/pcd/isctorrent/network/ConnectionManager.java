@@ -17,7 +17,6 @@ public class ConnectionManager {
     private final List<NodeConnection> connections;
     private final ServerSocket serverSocket;
     private volatile boolean running = true;
-    private final Set<String> connectedNodes = new HashSet<>();
     private final MyLock lock = new MyLock();
 
     public ConnectionManager(int port, IscTorrent torrent) {
@@ -35,40 +34,7 @@ public class ConnectionManager {
         }
     }
 
-    public void establishReturnConnection(String address, int port) {
-        String nodeKey = address + ":" + port;
-
-        lock.lock();
-        try {
-            if (connectedNodes.contains(nodeKey)) {
-                System.out.println("[Conexão] Já existe uma conexão de retorno para " + nodeKey);
-                return;
-            }
-        } finally {
-            lock.unlock();
-        }
-
-        System.out.println("[Conexão] Estabelecendo conexão de retorno para " + nodeKey);
-        connectToNode(address, port, true);
-    }
-
     public void connectToNode(String address, int port) {
-        connectToNode(address, port, false);
-    }
-
-    private void connectToNode(String address, int port, boolean isReturnConnection) {
-        String nodeKey = address + ":" + port;
-
-        lock.lock();
-        try {
-            if (connectedNodes.contains(nodeKey)) {
-                System.out.println("[Cliente] Já existe uma conexão para " + nodeKey);
-                return;
-            }
-        } finally {
-            lock.unlock();
-        }
-
         System.out.println("[Cliente] A tentar estabelecer ligação a " + address + ":" + port);
 
         try {
@@ -77,34 +43,22 @@ public class ConnectionManager {
 
             NodeConnection connection = new NodeConnection(socket, torrent);
 
-            if (!isReturnConnection) {
-                NewConnectionRequest request = new NewConnectionRequest(
-                        InetAddress.getLocalHost().getHostAddress(),
-                        this.port
-                );
-                connection.sendMessage(request);
-                System.out.println("[Cliente] Enviado pedido de ligação para " + address + ":" + port);
-            }
+            // Enviar informação sobre a nossa porta de escuta
+            NewConnectionRequest request = new NewConnectionRequest(
+                    InetAddress.getLocalHost().getHostAddress(),
+                    this.port
+            );
+            connection.sendMessage(request);
+            System.out.println("[Cliente] Enviado pedido de ligação para " + address + ":" + port);
 
             connections.add(connection);
-
-            lock.lock();
-            try {
-                connectedNodes.add(nodeKey);
-            } finally {
-                lock.unlock();
-            }
-
             new Thread(connection).start();
 
         } catch (IOException e) {
             String errorMsg = "Falha ao ligar a " + address + ":" + port + " - " + e.getMessage();
             System.err.println("[Cliente] " + errorMsg);
-
-            if (!isReturnConnection) {
-                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, errorMsg, "Erro de Ligação",
-                        JOptionPane.ERROR_MESSAGE));
-            }
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, errorMsg, "Erro de Ligação",
+                    JOptionPane.ERROR_MESSAGE));
         }
     }
 
@@ -161,8 +115,10 @@ public class ConnectionManager {
         List<NodeConnection> result = new ArrayList<>();
 
         for (NodeConnection conn : connections) {
-            if (conn.getRemoteAddress().equals(address)) {
+            if (conn.getRemoteAddress().equals(address) &&
+                    conn.getRemoteListeningPort() == port) {
                 result.add(conn);
+                break;
             }
         }
 
@@ -181,13 +137,6 @@ public class ConnectionManager {
             connection.close();
         }
         connections.clear();
-
-        lock.lock();
-        try {
-            connectedNodes.clear();
-        } finally {
-            lock.unlock();
-        }
 
         try {
             serverSocket.close();

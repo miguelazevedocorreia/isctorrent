@@ -69,10 +69,8 @@ public class NodeConnection implements Runnable {
     private void handleMessage(Object message) throws IOException {
         if (message instanceof NewConnectionRequest request) {
             remoteListeningPort = request.port();
-            System.out.println("[Conexão] Recebido pedido de conexão de " +
-                    getRemoteAddress() + " porta de escuta: " + remoteListeningPort);
-
-            torrent.getConnectionManager().establishReturnConnection(getRemoteAddress(), remoteListeningPort);
+            System.out.println("[Conexão] Nó remoto escuta na porta: " + remoteListeningPort);
+            // Conexão TCP já é bidirecional - não criar segunda conexão
         }
         else if (message instanceof WordSearchMessage) {
             System.out.println("[Pesquisa] A processar pedido de pesquisa de " +
