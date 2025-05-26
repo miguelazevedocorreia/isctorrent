@@ -1,4 +1,4 @@
-package pt.iscte.pcd.isctorrent.gui.dialogs;
+package gui.dialogs;
 
 import javax.swing.*;
 import java.awt.*;

@@ -1,7 +1,5 @@
-package pt.iscte.pcd.isctorrent.network;
+package network;
 
-import pt.iscte.pcd.isctorrent.concurrency.MyCondition;
-import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.core.IscTorrent;
 import pt.iscte.pcd.isctorrent.protocol.*;
 
@@ -22,17 +20,16 @@ public class NodeConnection implements Runnable {
     private volatile boolean running = true;
 
     private Object lastResponse;
-    private final MyLock responseLock = new MyLock();
-    private final MyCondition responseAvailable = responseLock.newCondition();
-
+    // Adicionar variável para porta de escuta remota
     private int remoteListeningPort = -1;
 
     public NodeConnection(Socket socket, IscTorrent torrent) throws IOException {
         this.socket = socket;
         this.torrent = torrent;
 
+        // Importante: primeiro criar output, fazer flush, depois criar input
         this.output = new ObjectOutputStream(socket.getOutputStream());
-        this.output.flush();
+        this.output.flush(); // Força envio do cabeçalho
 
         this.input = new ObjectInputStream(socket.getInputStream());
     }
@@ -68,9 +65,13 @@ public class NodeConnection implements Runnable {
 
     private void handleMessage(Object message) throws IOException {
         if (message instanceof NewConnectionRequest request) {
+            // Guardar a porta de escuta do nó remoto
             remoteListeningPort = request.port();
-            System.out.println("[Conexão] Nó remoto escuta na porta: " + remoteListeningPort);
-            // Conexão TCP já é bidirecional - não criar segunda conexão
+            System.out.println("[Conexão] Recebido pedido de conexão de " +
+                    getRemoteAddress() + " porta de escuta: " + remoteListeningPort);
+
+            // Estabelecer uma conexão de retorno
+            torrent.getConnectionManager().establishReturnConnection(getRemoteAddress(), remoteListeningPort);
         }
         else if (message instanceof WordSearchMessage) {
             System.out.println("[Pesquisa] A processar pedido de pesquisa de " +
@@ -78,19 +79,15 @@ public class NodeConnection implements Runnable {
             handleSearch((WordSearchMessage) message);
         }
         else if (message instanceof FileBlockRequestMessage request) {
-            System.out.println("[Transferência] A processar pedido de bloco - Ficheiro: " +
-                    request.fileName() + ", Offset: " + request.offset());
-            // Adicionar à fila de pedidos
-            torrent.getFileManager().getBlockRequestQueue().addRequest(request, this);
+            System.out.println("[Transferência] A processar pedido de bloco - Hash: " +
+                    request.hash() + ", Offset: " + request.offset());
+            handleBlockRequest(request);
         }
         else if (message instanceof FileBlockAnswerMessage) {
             System.out.println("[Transferência] Recebida resposta de bloco");
-            responseLock.lock();
-            try {
+            synchronized(this) {
                 lastResponse = message;
-                responseAvailable.signal();
-            } finally {
-                responseLock.unlock();
+                notifyAll();
             }
         }
         else if (message instanceof List) {
@@ -101,7 +98,7 @@ public class NodeConnection implements Runnable {
 
             if (searchResultsCollector != null) {
                 searchResultsCollector.addResults(results);
-                searchResultsCollector = null;
+                searchResultsCollector = null; // Reset após uso
             } else {
                 torrent.getGui().addSearchResults(results);
             }
@@ -116,13 +113,13 @@ public class NodeConnection implements Runnable {
         sendMessage(results);
     }
 
-    public void handleBlockRequestDirectly(FileBlockRequestMessage request, pt.iscte.pcd.isctorrent.core.FileManager fileManager) throws IOException {
+    private void handleBlockRequest(FileBlockRequestMessage request) throws IOException {
         try {
-            System.out.println("[Transferência] A ler bloco do ficheiro - Nome: " +
-                    request.fileName() + ", Offset: " + request.offset());
+            System.out.println("[Transferência] A ler bloco do ficheiro - Hash: " +
+                    request.hash() + ", Offset: " + request.offset());
 
-            byte[] data = fileManager.readFileBlock(
-                    request.fileName(),
+            byte[] data = torrent.getFileManager().readFileBlock(
+                    request.hash(),
                     request.offset(),
                     request.length()
             );
@@ -135,7 +132,8 @@ public class NodeConnection implements Runnable {
             System.out.println("[Transferência] A enviar bloco com " +
                     data.length + " bytes");
 
-            sendMessage(response);
+            output.writeObject(response);
+            output.flush();
 
             System.out.println("[Transferência] Bloco enviado com sucesso");
         } catch (IOException e) {
@@ -144,32 +142,24 @@ public class NodeConnection implements Runnable {
         }
     }
 
-    public void sendMessage(Object message) throws IOException {
-        responseLock.lock();
-        try {
-            if (socket.isClosed()) {
-                throw new IOException("Socket fechado");
-            }
-            output.writeObject(message);
-            output.flush();
-        } finally {
-            responseLock.unlock();
+    public synchronized void sendMessage(Object message) throws IOException {
+        if (socket.isClosed()) {
+            throw new IOException("Socket fechado");
         }
+        output.writeObject(message);
+        output.flush();
     }
 
-    public Object receiveResponse() throws IOException {
-        responseLock.lock();
+    public synchronized Object receiveResponse() throws IOException {
         try {
             while(lastResponse == null) {
-                responseAvailable.await();
+                wait();
             }
             Object response = lastResponse;
             lastResponse = null;
             return response;
         } catch (InterruptedException e) {
             throw new IOException(e);
-        } finally {
-            responseLock.unlock();
         }
     }
 

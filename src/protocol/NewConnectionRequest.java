@@ -1,4 +1,4 @@
-package pt.iscte.pcd.isctorrent.protocol;
+package protocol;
 
 import java.io.Serial;
 import java.io.Serializable;

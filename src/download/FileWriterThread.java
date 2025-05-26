@@ -1,7 +1,5 @@
-package pt.iscte.pcd.isctorrent.download;
+package download;
 
-import pt.iscte.pcd.isctorrent.concurrency.MyCondition;
-import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.gui.dialogs.DownloadResultDialog;
 
 import javax.swing.*;
@@ -11,18 +9,17 @@ import java.io.IOException;
 import java.util.Map;
 
 public class FileWriterThread implements Runnable {
+    private final String hash;
     private final String fileName;
     private final String workingDirectory;
     private final DownloadTasksManager manager;
     private volatile boolean downloadComplete = false;
 
-    private final MyLock lock = new MyLock();
-    private final MyCondition downloadCompleted = lock.newCondition();
-
     private Map<String, Integer> nodeCounter;
     private long elapsedTime;
 
-    public FileWriterThread(String fileName, String workingDirectory, DownloadTasksManager manager) {
+    public FileWriterThread(String hash, String fileName, String workingDirectory, DownloadTasksManager manager) {
+        this.hash = hash;
         this.fileName = fileName;
         this.workingDirectory = workingDirectory;
         this.manager = manager;
@@ -31,18 +28,13 @@ public class FileWriterThread implements Runnable {
     @Override
     public void run() {
         try {
-            System.out.println("[Writer] A aguardar conclusão do download para: " + fileName);
-            lock.lock();
-            try {
+            synchronized(this) {
                 while (!downloadComplete) {
-                    downloadCompleted.await();
+                    wait();
                 }
-            } finally {
-                lock.unlock();
             }
 
-            System.out.println("[Writer] Download concluído, a escrever ficheiro: " + fileName);
-            byte[] fileData = manager.getFileData(fileName);
+            byte[] fileData = manager.getFileData(hash);
             if (fileData == null) {
                 throw new IOException("File data not found");
             }
@@ -52,6 +44,7 @@ public class FileWriterThread implements Runnable {
                 fos.write(fileData);
                 System.out.println("[Write] File saved successfully: " + newFile.getAbsolutePath());
 
+                // Exibir o diálogo de resultado
                 SwingUtilities.invokeLater(() ->
                         DownloadResultDialog.showResult(
                                 SwingUtilities.getWindowAncestor(manager.getTorrent().getGui()),
@@ -63,22 +56,14 @@ public class FileWriterThread implements Runnable {
             }
 
         } catch (InterruptedException | IOException e) {
-            System.err.println("[Writer Error] " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("[Error] " + e.getMessage());
         }
     }
 
-    public void notifyDownloadComplete(Map<String, Integer> nodeCounter, long elapsedTime) {
-        System.out.println("[DEBUG] FileWriterThread.notifyDownloadComplete() chamado para: " + fileName);
-        lock.lock();
-        try {
-            this.nodeCounter = nodeCounter;
-            this.elapsedTime = elapsedTime;
-            this.downloadComplete = true;
-            downloadCompleted.signal();
-            System.out.println("[DEBUG] Signal enviado para FileWriterThread");
-        } finally {
-            lock.unlock();
-        }
+    public synchronized void notifyDownloadComplete(Map<String, Integer> nodeCounter, long elapsedTime) {
+        this.nodeCounter = nodeCounter;
+        this.elapsedTime = elapsedTime;
+        this.downloadComplete = true;
+        notify();
     }
 }
