@@ -66,7 +66,8 @@ public class IscTorrent {
     }
 
     public synchronized void startDownload(FileSearchResult result) {
-        // Buscar conexões que têm especificamente este ficheiro
+        System.out.println("Download iniciado: " + result.fileName());
+
         List<NodeConnection> fileConnections = connectionManager
                 .getConnectionsForNode(result.nodeAddress(), result.nodePort());
 
