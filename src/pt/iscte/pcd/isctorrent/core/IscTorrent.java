@@ -52,7 +52,7 @@ public class IscTorrent {
             );
             connectionManager.broadcastSearch(searchMessage, collector);
 
-            boolean allResponded = latch.await(5000); // 5 segundos timeout
+            boolean allResponded = latch.await(Constants.SEARCH_TIMEOUT_MS);
             gui.addSearchResults(collector.getAllResults());
 
         } catch (UnknownHostException e) {
@@ -66,16 +66,16 @@ public class IscTorrent {
     }
 
     public synchronized void startDownload(FileSearchResult result) {
-        // CORREÇÃO: Buscar TODAS as conexões ativas que podem fornecer o ficheiro
-        List<NodeConnection> allConnections = connectionManager.getAllConnections();
+        // Buscar conexões que têm especificamente este ficheiro
+        List<NodeConnection> fileConnections = connectionManager
+                .getConnectionsForNode(result.nodeAddress(), result.nodePort());
 
-        if (!allConnections.isEmpty()) {
-            downloadManager.startDownload(result, allConnections, this.workingDirectory);
+        if (!fileConnections.isEmpty()) {
+            downloadManager.startDownload(result, fileConnections, this.workingDirectory);
         } else {
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(gui,
-                    "Não há conexões ativas disponíveis",
-                    "Erro de Download",
-                    JOptionPane.ERROR_MESSAGE));
+                    "Nenhuma conexão ativa tem este ficheiro",
+                    "Erro de Download", JOptionPane.ERROR_MESSAGE));
         }
     }
 
