@@ -1,6 +1,6 @@
 package pt.iscte.pcd.isctorrent.network;
 
-import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
+import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.protocol.FileSearchResult;
 
 import java.util.ArrayList;
@@ -10,7 +10,7 @@ import java.util.concurrent.CountDownLatch;
 public class SearchResultsCollector {
     private final CountDownLatch latch;
     private final List<FileSearchResult> results;
-    private final MyReentrantLock lock = new MyReentrantLock();
+    private final MyLock lock = new MyLock();
 
     public SearchResultsCollector(CountDownLatch latch, List<FileSearchResult> initialResults) {
         this.latch = latch;

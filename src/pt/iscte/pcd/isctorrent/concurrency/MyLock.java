@@ -3,7 +3,7 @@ package pt.iscte.pcd.isctorrent.concurrency;
 import java.util.concurrent.atomic.AtomicReference;
 
 // Custom ReentrantLock implementation
-public class MyReentrantLock {
+public class MyLock {
     private final AtomicReference<Thread> owner = new AtomicReference<>(null);
     private int holdCount = 0;
 

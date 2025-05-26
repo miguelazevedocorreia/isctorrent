@@ -5,10 +5,10 @@ import java.util.concurrent.locks.LockSupport;
 
 // Custom Condition implementation
 public class MyCondition {
-    private final MyReentrantLock lock;
+    private final MyLock lock;
     private final ConcurrentLinkedQueue<Thread> waitQueue = new ConcurrentLinkedQueue<>();
 
-    public MyCondition(MyReentrantLock lock) {
+    public MyCondition(MyLock lock) {
         this.lock = lock;
     }
 

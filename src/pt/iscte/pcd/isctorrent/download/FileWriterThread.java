@@ -1,7 +1,7 @@
 package pt.iscte.pcd.isctorrent.download;
 
 import pt.iscte.pcd.isctorrent.concurrency.MyCondition;
-import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
+import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.gui.dialogs.DownloadResultDialog;
 
 import javax.swing.*;
@@ -16,7 +16,7 @@ public class FileWriterThread implements Runnable {
     private final DownloadTasksManager manager;
     private volatile boolean downloadComplete = false;
 
-    private final MyReentrantLock lock = new MyReentrantLock();
+    private final MyLock lock = new MyLock();
     private final MyCondition downloadCompleted = lock.newCondition();
 
     private Map<String, Integer> nodeCounter;

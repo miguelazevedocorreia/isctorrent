@@ -1,7 +1,7 @@
 package pt.iscte.pcd.isctorrent.download;
 
 import pt.iscte.pcd.isctorrent.concurrency.MyCondition;
-import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
+import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.core.Constants;
 import pt.iscte.pcd.isctorrent.core.IscTorrent;
 import pt.iscte.pcd.isctorrent.network.NodeConnection;
@@ -27,7 +27,7 @@ public class DownloadTasksManager {
 
     private final IscTorrent torrent;
 
-    private final MyReentrantLock lock = new MyReentrantLock();
+    private final MyLock lock = new MyLock();
     private final MyCondition blockAvailable = lock.newCondition();
 
     public DownloadTasksManager(IscTorrent torrent) {

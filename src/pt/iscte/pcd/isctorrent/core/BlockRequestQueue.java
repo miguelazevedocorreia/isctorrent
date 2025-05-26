@@ -1,7 +1,7 @@
 package pt.iscte.pcd.isctorrent.core;
 
 import pt.iscte.pcd.isctorrent.concurrency.MyCondition;
-import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
+import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.network.NodeConnection;
 import pt.iscte.pcd.isctorrent.protocol.FileBlockRequestMessage;
 
@@ -11,7 +11,7 @@ import java.util.Queue;
 // Thread única para processar pedidos de blocos
 public class BlockRequestQueue {
     private final Queue<BlockRequest> queue = new LinkedList<>();
-    private final MyReentrantLock lock = new MyReentrantLock();
+    private final MyLock lock = new MyLock();
     private final MyCondition notEmpty = lock.newCondition();
     private volatile boolean running = true;
     private final FileManager fileManager;

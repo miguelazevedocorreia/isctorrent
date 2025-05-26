@@ -1,7 +1,6 @@
 package pt.iscte.pcd.isctorrent.core;
 
-import pt.iscte.pcd.isctorrent.concurrency.MyCondition;
-import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
+import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.protocol.FileSearchResult;
 
 import java.io.*;
@@ -12,7 +11,7 @@ public class FileManager {
     private final String workingDirectory;
     private final Map<String, File> availableFiles;
     private final int port;
-    private final MyReentrantLock lock = new MyReentrantLock();
+    private final MyLock lock = new MyLock();
     private final BlockRequestQueue blockRequestQueue;
 
     public FileManager(String workingDirectory, int port) {

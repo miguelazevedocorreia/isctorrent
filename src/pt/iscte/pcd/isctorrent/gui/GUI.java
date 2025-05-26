@@ -1,6 +1,6 @@
 package pt.iscte.pcd.isctorrent.gui;
 
-import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
+import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.core.IscTorrent;
 import pt.iscte.pcd.isctorrent.gui.dialogs.ConnectionDialog;
 import pt.iscte.pcd.isctorrent.protocol.FileSearchResult;
@@ -9,7 +9,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.stream.Collectors;
 
 public class GUI extends JFrame {
@@ -17,7 +16,7 @@ public class GUI extends JFrame {
     private final JTextField searchField;
     private final JList<Object> resultsList;
     private final DefaultListModel<Object> resultsModel;
-    private final MyReentrantLock lock = new MyReentrantLock();
+    private final MyLock lock = new MyLock();
 
     public GUI(IscTorrent torrent, int port) {
         this.torrent = torrent;

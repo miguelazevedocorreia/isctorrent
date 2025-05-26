@@ -1,6 +1,6 @@
 package pt.iscte.pcd.isctorrent.network;
 
-import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
+import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.core.IscTorrent;
 import pt.iscte.pcd.isctorrent.protocol.NewConnectionRequest;
 import pt.iscte.pcd.isctorrent.protocol.WordSearchMessage;
@@ -18,7 +18,7 @@ public class ConnectionManager {
     private final ServerSocket serverSocket;
     private volatile boolean running = true;
     private final Set<String> connectedNodes = new HashSet<>();
-    private final MyReentrantLock lock = new MyReentrantLock();
+    private final MyLock lock = new MyLock();
 
     public ConnectionManager(int port, IscTorrent torrent) {
         this.port = port;

@@ -1,7 +1,7 @@
 package pt.iscte.pcd.isctorrent.network;
 
 import pt.iscte.pcd.isctorrent.concurrency.MyCondition;
-import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
+import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.core.IscTorrent;
 import pt.iscte.pcd.isctorrent.protocol.*;
 
@@ -22,7 +22,7 @@ public class NodeConnection implements Runnable {
     private volatile boolean running = true;
 
     private Object lastResponse;
-    private final MyReentrantLock responseLock = new MyReentrantLock();
+    private final MyLock responseLock = new MyLock();
     private final MyCondition responseAvailable = responseLock.newCondition();
 
     private int remoteListeningPort = -1;

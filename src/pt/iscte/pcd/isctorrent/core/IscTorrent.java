@@ -1,6 +1,6 @@
 package pt.iscte.pcd.isctorrent.core;
 
-import pt.iscte.pcd.isctorrent.concurrency.MyReentrantLock;
+import pt.iscte.pcd.isctorrent.concurrency.MyLock;
 import pt.iscte.pcd.isctorrent.download.DownloadTasksManager;
 import pt.iscte.pcd.isctorrent.gui.GUI;
 import pt.iscte.pcd.isctorrent.network.ConnectionManager;
@@ -25,7 +25,7 @@ public class IscTorrent {
     private final ConnectionManager connectionManager;
     private final FileManager fileManager;
     private final Map<String, DownloadTasksManager> downloadManagers;
-    private final MyReentrantLock downloadLock = new MyReentrantLock();
+    private final MyLock downloadLock = new MyLock();
 
     public IscTorrent(int port, String workingDirectory) {
         this.port = port;
