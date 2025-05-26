@@ -37,13 +37,17 @@ public class FileWriterThread implements Runnable {
             File newFile = new File(workingDirectory, fileName);
             try (FileOutputStream fos = new FileOutputStream(newFile)) {
                 fos.write(fileData);
+
+                // Limpar dados do manager após escrita
+                manager.removeDownload(hash);
+
                 SwingUtilities.invokeLater(() ->
                         DownloadResultDialog.showResult(
                                 SwingUtilities.getWindowAncestor(manager.getTorrent().getGui()),
                                 fileName, nodeCounter, elapsedTime));
             }
         } catch (InterruptedException | IOException e) {
-            System.err.println("Erro: " + e.getMessage());
+            System.err.println("Erro na escrita: " + e.getMessage());
         }
     }
 

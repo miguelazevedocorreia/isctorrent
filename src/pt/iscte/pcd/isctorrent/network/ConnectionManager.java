@@ -25,10 +25,8 @@ public class ConnectionManager {
 
         try {
             this.serverSocket = new ServerSocket(port);
-            System.out.println("[Servidor] Iniciado na porta " + port);
             new Thread(this::acceptConnections).start();
         } catch (IOException e) {
-            System.err.println("[Servidor] Falha ao iniciar servidor na porta " + port);
             throw new RuntimeException("Falha ao iniciar servidor", e);
         }
     }
@@ -38,21 +36,17 @@ public class ConnectionManager {
             Socket socket = new Socket(address, port);
             NodeConnection connection = new NodeConnection(socket, torrent);
 
-            // Enviar apenas identificação
             NewConnectionRequest request = new NewConnectionRequest(
                     InetAddress.getLocalHost().getHostAddress(), this.port);
             connection.sendMessage(request);
 
             connections.add(connection);
             new Thread(connection).start();
-
-            // Notificar GUI da nova conexão
             torrent.getGui().updateConnectionsList();
 
         } catch (IOException e) {
-            String errorMsg = "Falha ao ligar a " + address + ":" + port + " - " + e.getMessage();
-            System.err.println("[Cliente] " + errorMsg);
-            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, errorMsg,
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null,
+                    "Falha ao ligar a " + address + ":" + port,
                     "Erro de Ligação", JOptionPane.ERROR_MESSAGE));
         }
     }
@@ -61,16 +55,13 @@ public class ConnectionManager {
         while (running && !serverSocket.isClosed()) {
             try {
                 Socket socket = serverSocket.accept();
-                String clientAddress = socket.getInetAddress().getHostAddress() + ":" + socket.getPort();
-                System.out.println("[Servidor] Nova ligação aceite de " + clientAddress);
-
                 NodeConnection connection = new NodeConnection(socket, torrent);
                 connections.add(connection);
                 new Thread(connection).start();
 
             } catch (IOException e) {
                 if (running && !serverSocket.isClosed()) {
-                    System.err.println("[Servidor] Erro ao aceitar ligação: " + e.getMessage());
+                    System.err.println("Erro ao aceitar ligação: " + e.getMessage());
                 }
             }
         }
@@ -88,13 +79,17 @@ public class ConnectionManager {
                 }
                 connection.sendMessage(search);
             } catch (IOException e) {
-                System.err.println("[Pesquisa] Erro ao enviar pesquisa");
                 connections.remove(connection);
                 if (collector != null) {
                     collector.addResults(Collections.emptyList());
                 }
             }
         }
+    }
+
+    // CORREÇÃO: Método para obter TODAS as conexões ativas
+    public List<NodeConnection> getAllConnections() {
+        return new ArrayList<>(connections);
     }
 
     public List<NodeConnection> getConnectionsForNode(String address, int port) {
@@ -126,7 +121,7 @@ public class ConnectionManager {
         try {
             serverSocket.close();
         } catch (IOException e) {
-            System.err.println("[Servidor] Erro ao encerrar servidor: " + e.getMessage());
+            System.err.println("Erro ao encerrar servidor: " + e.getMessage());
         }
     }
 }

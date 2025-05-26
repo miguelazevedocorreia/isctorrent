@@ -7,13 +7,12 @@ import pt.iscte.pcd.isctorrent.protocol.FileSearchResult;
 import pt.iscte.pcd.isctorrent.protocol.WordSearchMessage;
 import pt.iscte.pcd.isctorrent.network.NodeConnection;
 import pt.iscte.pcd.isctorrent.network.SearchResultsCollector;
+import pt.iscte.pcd.isctorrent.sync.MyCountDownLatch;
 
 import javax.swing.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 public class IscTorrent {
     private final int port;
@@ -31,22 +30,18 @@ public class IscTorrent {
         this.downloadManager = new DownloadTasksManager(this);
         this.connectionManager = new ConnectionManager(port, this);
         this.gui = new GUI(this, port);
-
-        System.out.println("IscTorrent iniciado na porta: " + port);
     }
 
     public synchronized void searchFiles(String keyword) {
-        // Busca local
         List<FileSearchResult> localResults = fileManager.searchFiles(keyword);
 
-        // Iniciar CountDownLatch para esperar respostas remotas
         int activeConnections = connectionManager.getActiveConnectionsCount();
         if (activeConnections == 0) {
             gui.addSearchResults(localResults);
             return;
         }
 
-        CountDownLatch latch = new CountDownLatch(activeConnections);
+        MyCountDownLatch latch = new MyCountDownLatch(activeConnections);
         SearchResultsCollector collector = new SearchResultsCollector(latch, localResults);
 
         try {
@@ -57,12 +52,9 @@ public class IscTorrent {
             );
             connectionManager.broadcastSearch(searchMessage, collector);
 
-            boolean allResponded = latch.await(5, TimeUnit.SECONDS);
+            boolean allResponded = latch.await(5000); // 5 segundos timeout
             gui.addSearchResults(collector.getAllResults());
 
-            if (!allResponded) {
-                System.out.println("[Pesquisa] Timeout ao aguardar respostas de todos os nós");
-            }
         } catch (UnknownHostException e) {
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(gui,
                     "Erro ao obter endereço local: " + e.getMessage(),
@@ -70,21 +62,18 @@ public class IscTorrent {
                     JOptionPane.ERROR_MESSAGE));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            System.err.println("[Pesquisa] Interrompido ao aguardar respostas: " + e.getMessage());
         }
     }
 
     public synchronized void startDownload(FileSearchResult result) {
-        List<NodeConnection> sources = connectionManager.getConnectionsForNode(
-                result.nodeAddress(),
-                result.nodePort()
-        );
+        // CORREÇÃO: Buscar TODAS as conexões ativas que podem fornecer o ficheiro
+        List<NodeConnection> allConnections = connectionManager.getAllConnections();
 
-        if (!sources.isEmpty()) {
-            downloadManager.startDownload(result, sources, this.workingDirectory);
+        if (!allConnections.isEmpty()) {
+            downloadManager.startDownload(result, allConnections, this.workingDirectory);
         } else {
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(gui,
-                    "Não foi possível encontrar conexão com o nó remoto",
+                    "Não há conexões ativas disponíveis",
                     "Erro de Download",
                     JOptionPane.ERROR_MESSAGE));
         }
