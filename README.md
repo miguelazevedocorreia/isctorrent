@@ -1,41 +1,41 @@
 # IscTorrent
 
-Sistema P2P de partilha de ficheiros desenvolvido em Java.
+P2P file sharing system developed in Java.
 
-## Execução
+## Execution
 
 ```bash
-java pt.iscte.pcd.isctorrent.Main <porta> <diretório_trabalho>
+java pt.iscte.pcd.isctorrent.Main <port> <working_directory>
 ```
 
-Exemplo:
+Example:
 ```bash
 java pt.iscte.pcd.isctorrent.Main 8081 dl1
 ```
 
-## Funcionalidades
+## Features
 
-- Arquitetura peer-to-peer sem servidor central
-- Interface gráfica para pesquisa e downloads
-- Download distribuído em blocos de múltiplos nós
-- Coordenação usando mecanismos próprios de sincronização
+- Peer-to-peer architecture without central server
+- Graphical interface for search and downloads
+- Distributed download in blocks from multiple peers
+- Coordination using custom synchronization mechanisms
 
-## Como usar
+## How to Use
 
-1. **Conectar a nós**: Use o botão "Conectar" para ligar a outros nós
-2. **Pesquisar ficheiros**: Introduza palavra-chave e clique "Procurar"
-3. **Download**: Selecione ficheiros da lista e clique "Transferir"
+1. **Connect to peers**: Use the "Connect" button to link with other peers
+2. **Search files**: Enter a keyword and click "Search"
+3. **Download**: Select files from the list and click "Download"
 
-## Estrutura do projeto
+## Project Structure
 
-- `core/` - Classes principais do sistema
-- `download/` - Gestão de downloads distribuídos
-- `network/` - Comunicação entre nós
-- `gui/` - Interface gráfica
-- `protocol/` - Mensagens de comunicação
-- `sync/` - Coordenação personalizada
+- `core/` - Core system classes
+- `download/` - Distributed download management
+- `network/` - Peer-to-peer communication
+- `gui/` - Graphical interface
+- `protocol/` - Communication messages
+- `sync/` - Custom synchronization
 
-## Requisitos
+## Requirements
 
-- Java 17 ou superior
-- Apenas bibliotecas padrão do Java
+- Java 17 or higher
+- Only standard Java libraries
